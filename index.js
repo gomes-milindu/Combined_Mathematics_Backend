@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import User from "./model/user.js";
+import userRoute from './router/userRouter.js';
 
 
 const app = express();
@@ -24,26 +25,35 @@ mongoose.connect(connectionString).then(
     }
 )
 
-app.post("/", (req, res) => {
-    const user = new User({
-        
-            firstName:req.body.firstName,
-            lastName:req.body.lastName,
-            email:req.body.email,
-            password:req.body.password
-        
-});
+app.use(
+    (req,res,next)=>{
+        let token = req.header("Authorization")
 
-    user.save().then(
-        ()=>{
-            res.json(
-                {
-                    "message": "user save successfully"
-                }
-            )
+        if(token != null)
+        {
+                token = token.replace("Bearer ","")
+                console.log(token)
+                jwt.verify(token,JWT_SECRET,
+                    (err,decoded)=>{
+                        if(decoded == null){
+                            res.json(
+                                {
+                                    message: "invalid token"
+                                }
+                            )
+                            return // methanin ehata run krwnna epa
+                        }else{
+                            console.log(decoded)
+                            req.user = decoded
+                        }
+                    }
+                 ) // token eka decrypt krnwa
         }
-    )
 
-})
+        next()
+    }
+)
+
+app.use("/user",userRoute)
 
 
