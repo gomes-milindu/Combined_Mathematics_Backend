@@ -14,7 +14,7 @@ function start() {
     console.log('Server started');
 }
 
-const connectionString = "mongodb+srv://clone-2:1234@cluster0.arkyzdz.mongodb.net/?appName=Cluster0"
+const connectionString = "  "
 mongoose.connect(connectionString).then(
     ()=>{
         console.log('Connected to the database');
@@ -33,7 +33,10 @@ app.use(
         {
                 token = token.replace("Bearer ","")
                 console.log(token)
-                jwt.verify(token,JWT_SECRET,
+                jwt.verify(token, 
+                    // add secret ,
+                    
+                
                     (err,decoded)=>{
                         if(decoded == null){
                             res.json(
