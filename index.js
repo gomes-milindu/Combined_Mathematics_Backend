@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import User from "./model/user.js";
 
 
 const app = express();
@@ -24,12 +25,25 @@ mongoose.connect(connectionString).then(
 )
 
 app.post("/", (req, res) => {
-    console.log("this is a post request");
-    res.json(
-        {
-            "message":"post request completed"
+    const user = new User({
+        
+            firstName:req.body.firstName,
+            lastName:req.body.lastName,
+            email:req.body.email,
+            password:req.body.password
+        
+});
+
+    user.save().then(
+        ()=>{
+            res.json(
+                {
+                    "message": "user save successfully"
+                }
+            )
         }
     )
+
 })
 
 
