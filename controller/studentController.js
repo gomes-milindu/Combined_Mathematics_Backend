@@ -1,7 +1,32 @@
 import jwt from "jsonwebtoken"
 import Student from "../model/student.js";
+import QRCode from 'qrcode'
 
-export function createStudent(req, res){
+export function isAdmin(req,res){
+    if(req.body.role == null){
+        return false
+    }
+
+    if(req.body.role != "admin"){
+        return false
+    }
+
+    return true
+
+}
+
+
+
+export async function createStudent(req, res){
+    
+    if(!isAdmin(req)){
+        res.json({
+            "message":"you havent access to create accounts"
+        })
+
+        return
+    }
+    
     
     const student = new Student({
         
@@ -11,19 +36,47 @@ export function createStudent(req, res){
             email:req.body.email,
             password:req.body.password
         
-});
+    });
 
     const existingStudent = Student.findOne({email: req.body.email})
 
-    student.save().then(
+    if(existingStudent == null){
+        res.json(
+            {
+                "message":"Student Already Excists"
+            }
+        )
+        return
+    }
+
+    const qrText = student.studentId.toString();  
+    // const qrCode = await QRCode.toString(qrText);
+
+    const qrPath = `./qrcodes/${qrText}.png`
+
+    await QRCode.toFile(qrPath, qrText);
+
+    student.qrCode = qrPath
+
+    await student.save().then(
         ()=>{
             res.json(
                 {
-                    "message": "user save successfully"
+                    "message":"student saved succesfully"
+                }
+            )
+        }
+    ).catch(
+        ()=>{
+            res.json(
+                {
+                    "message":"student not saved"
                 }
             )
         }
     )
+
+    
 
 }
 

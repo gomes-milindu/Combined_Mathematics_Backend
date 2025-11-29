@@ -31,7 +31,7 @@ const studentModel = new mongoose.Schema({
   
   // ENROLLMENT INFORMATION
   course: {
-        type: String,
+        type: [String],
         require: true,
         
     },          
@@ -70,6 +70,11 @@ const studentModel = new mongoose.Schema({
         type: String,
         require: true,
         
+    },
+
+    role:{
+        type:String,
+        default:"admin"
     }
 })
 

@@ -1,8 +1,8 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import User from "./model/student.js";
-import userRoute from './router/srudentRouter.js';
-import studentRoute from './router/srudentRouter.js';
+import userRoute from './router/studentRouter.js';
+import studentRoute from './router/studentRouter.js';
 
 
 const app = express();
