@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken"
-import Student from "../model/student.js";
+import Student from "../model/studentModel.js";
 import QRCode from 'qrcode'
 
 export function isAdmin(req,res){
@@ -81,21 +81,24 @@ export async function createStudent(req, res){
 }
 
 
+
+
+
 export async function loginStudent(req,res){
-    User.findOne(
+    Student.findOne(
         {
             email: req.body.email
         }
     ).then(
         (user)=>{
             // const excistingUser = bcrypt.compareSync(req.body.password,User.password)
-
-            if(req.body.password == Student.password){
-                jwt.sign(
+            console.log(user)
+            if(req.body.password == user.password){
+                const token = jwt.sign(
                     {
-                        firstName: Student.firstName,
-                        lastName: Student.body,
-                        email: Student.email,
+                        firstName: user.firstName,
+                        lastName: user.body,
+                        email: user.email,
                         
                     },'JWT-Token'
                 )
@@ -110,3 +113,31 @@ export async function loginStudent(req,res){
         }
     )
 }
+
+export async function getStudent(req,res){
+    
+    try{
+        const student = await Student.find();
+        res.json(student);
+    }catch(err){
+        console.error(err);
+        res.status(500).json({
+            message: "Failed to retreive products",
+        });
+    }
+}
+
+
+
+export default function scanQr(req, res){
+  const { studentId } = req.body;
+
+  console.log("Student id successfully got it.", studentId);
+
+  return res.json({
+    success: true,
+    message: "Student ID received",
+    studentId: studentId,
+    timestamp: new Date()
+  });
+};
