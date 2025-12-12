@@ -5,10 +5,12 @@ import userRoute from './router/studentRouter.js';
 import studentRoute from './router/studentRouter.js';
 import addCourseRoute from './router/addCourse.js';
 import jwt from "jsonwebtoken";
+import cors from "cors"
 
 
 
 const app = express();
+app.use(cors())
 app.use(express.json());
 app.listen(8080, start);
 
