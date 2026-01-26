@@ -6,6 +6,8 @@ import studentRoute from './router/studentRouter.js';
 import addCourseRoute from './router/addCourse.js';
 import jwt from "jsonwebtoken";
 import cors from "cors"
+import {createAdmin} from './controller/adminController.js';
+import adminRouter from './router/adminRouter.js';
 
 
 
@@ -70,5 +72,6 @@ mongoose.connect(connectionString).then(
 
 app.use("/student",studentRoute)
 app.use("/addcourse",addCourseRoute)
+app.use("/admin", adminRouter)
 
 

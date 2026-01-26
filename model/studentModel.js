@@ -5,28 +5,28 @@ const studentModel = new mongoose.Schema({
    // IDENTIFICATION
     studentId:{
         type: String,
-        require: true,
+        required: true,
         unique: true
     },        
     firstName: {
         type: String,
-        require: true,
+        required: true,
         
     },   
     
     lastName: {
         type: String,
-        require: true,
+        required: true,
         
     }, 
     email:{
         type: String,
-        require: true,
+        required: true,
         unique: true
     },           
     phone: {
         type: String,
-        require: true,
+        required: true,
     },
     
     password:{
@@ -42,7 +42,7 @@ const studentModel = new mongoose.Schema({
     },          
   batch: {
         type: String,
-        require: true,
+        required: true,
         
     },    
     
@@ -50,36 +50,28 @@ const studentModel = new mongoose.Schema({
   // STATUS
   qrCode: {
         type: String,
-        require: true,
+        required: true,
         unique: true
         
     },      
   isActive: {
         type: Boolean,
-        require: true,
+        required: true,
         
     },     
   
   // PERSONAL DETAILS (optional)
-  address: {
-        type: String,
-        require: true,
-        
-    },
+ 
   dateOfBirth: {
         type: Date,
-        require: true,
+        required: true,
         
     },
-  guardianContact: {
-        type: String,
-        require: true,
-        
-    },
+  
 
     role:{
         type:String,
-        default:"admin"
+        default:"student"
     }
 })
 
