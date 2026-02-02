@@ -55,3 +55,13 @@ export function loginAdmin(req, res) {
     });
   }
 }
+
+export async function getAllAdmins(req, res) {
+  try {
+    const admins = await AdminModel.find();
+    return res.status(200).json(admins);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error fetching admins", error });
+  }
+}
