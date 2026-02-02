@@ -9,11 +9,11 @@ import { isAdmin } from "./adminController.js";
 
 export async function createStudent(req, res){
 
-    if(!isAdmin(req)){
-        return res.json({
-            message: "you havent access to create accounts"
-        })
-    }
+    // if(!isAdmin(req)){
+    //     return res.json({
+    //         message: "you havent access to create accounts"
+    //     })
+    // }
 
     try {
 
@@ -114,25 +114,41 @@ export async function getStudent(req,res){
     }
 }
 
-export async function deleteStudent(req,res){
-    if(!isAdmin(req)){
-        return res.json({
-            message: "you havent access to delete accounts"
-        })
-    }
-
+export async function getOneStudent(req,res){
     try{
-        const studentId = req.body.id;
-        await Student.findByIdAndDelete(studentId);
-        res.json({
-            message: "Student deleted successfully"
-        });
+        const student = await Student.findById(req.params.id);
+        res.json(student);
     }catch(err){
         console.error(err);
         res.status(500).json({
-            message: "Failed to delete student",
+            message: "Failed to retreive product",
         });
     }
+}
+
+export async function deleteStudent(req, res) {
+  try {
+    const id = req.params.id;  
+
+    const deletedStudent = await Student.findByIdAndDelete(id);
+
+    if (!deletedStudent) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    res.json({
+      message: "Student deleted successfully",
+      deletedStudent,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Failed to delete student",
+      error: err.message,
+    });
+  }
 }
 
 
@@ -149,3 +165,47 @@ export default function scanQr(req, res){
     timestamp: new Date()
   });
 };
+
+export async function editStudent(req, res) {
+  try {
+    const id = req.params.id;  
+    const updateData = req.body;
+    const updatedStudent = await Student.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!updatedStudent) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+    res.json({
+      message: "Student updated successfully",
+      updatedStudent,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Failed to update student",
+      error: err.message,
+    });
+  } 
+}
+
+export async function getStudentById(req, res) {
+  try {
+    const student = await Student.findById(req.params.id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json(student);
+  } catch (err) {
+    res.status(500).json({
+      message: "Fetch failed",
+      error: err.message,
+    });
+  }
+}
+
+
+
