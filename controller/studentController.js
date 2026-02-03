@@ -44,7 +44,7 @@ export async function createStudent(req, res){
             isActive: req.body.isActive,
         })
 
-        const qrText = student.studentId.toString()
+        const qrText = student._id.toString()
         const qrPath = `./qrcodes/${qrText}.png`
 
         await QRCode.toFile(qrPath, qrText)

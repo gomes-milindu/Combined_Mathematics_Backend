@@ -10,25 +10,25 @@ export default async function createPayment(req, res) {
       amount,
     } = req.body;
 
-    // 1️⃣ Basic validation
+   
     if (!studentId || !courseId || !className || !month || !amount) {
       return res.status(400).json({
         message: "All fields are required",
       });
     }
 
-    // 2️⃣ Always create as PENDING
+   
     const payment = new Payment({
       studentId,
       courseId,
       class: className,
       month,
       amount,
-      status: "PENDING",
+      status: "PAID",
       paidDate: null,
     });
 
-    // 3️⃣ Save (Mongo handles duplicates)
+    
     const savedPayment = await payment.save();
 
     return res.status(201).json({
@@ -38,7 +38,7 @@ export default async function createPayment(req, res) {
 
   } catch (err) {
 
-    // 4️⃣ Duplicate month handling
+    
     if (err.code === 11000) {
       return res.status(409).json({
         message: "Payment already exists for this student, course, and month",
