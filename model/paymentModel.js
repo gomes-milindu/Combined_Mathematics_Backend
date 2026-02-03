@@ -41,7 +41,7 @@ const paymentModel = new mongoose.Schema({
 
 // 🔥 IMPORTANT
 paymentModel.index(
-  { studentId: 1, courseId: 1, class: 1 ,month: 1 },
+  { studentId: 1, courseId: 1, month: 1 },
   { unique: true }
 );
 
