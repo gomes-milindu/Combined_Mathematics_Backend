@@ -1,6 +1,6 @@
 import Payment from "../model/paymentModel.js";
 
-export default async function createPayment(req, res) {
+export async function createPayment(req, res) {
   try {
     const {
       studentId,
@@ -50,4 +50,13 @@ export default async function createPayment(req, res) {
       error: err.message,
     });
   }
+}
+
+
+export  function getPayment(){
+   try{
+     const thu = 5;
+   }catch(err){
+      console.log(err)
+   }
 }

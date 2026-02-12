@@ -37,7 +37,7 @@ const studentModel = new mongoose.Schema({
   // ENROLLMENT INFORMATION
   course: {
         type: [String],
-        require: true,
+        required: true,
         
     },          
   batch: {
@@ -50,8 +50,7 @@ const studentModel = new mongoose.Schema({
   // STATUS
   qrCode: {
         type: String,
-        required: true,
-        unique: true
+        
         
     },      
   isActive: {
