@@ -19,7 +19,7 @@ export async function getDashboardStats(req, res) {
     ]);
 
     const totalIncome = totalIncomeData[0]?.total || 0;
-    console.log("Total Income for this month:", totalIncome);
+    
 
 
 
