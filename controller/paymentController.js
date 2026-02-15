@@ -4,14 +4,15 @@ export async function createPayment(req, res) {
   try {
     const {
       studentId,
-      courseId,
-      class: className,
+      batch,
       month,
       amount,
+      // status,
+      cardType
     } = req.body;
 
     // 1️⃣ Basic validation
-    if (!studentId || !courseId || !className || !month || !amount) {
+    if (!studentId || !batch || !month || !amount || !cardType) {
       return res.status(400).json({
         message: "All fields are required",
       });
@@ -20,12 +21,13 @@ export async function createPayment(req, res) {
     // 2️⃣ Always create as PENDING
     const payment = new Payment({
       studentId,
-      courseId,
-      class: className,
+      batch,
+      // class: className,
       month,
       amount,
-      status: "PENDING",
-      paidDate: null,
+      status:"PAID",
+      cardType,
+      paidDate: new Date()
     });
 
     // 3️⃣ Save (Mongo handles duplicates)
@@ -41,7 +43,7 @@ export async function createPayment(req, res) {
     // 4️⃣ Duplicate month handling
     if (err.code === 11000) {
       return res.status(409).json({
-        message: "Payment already exists for this student, course, and month",
+        message: "Payment already exists for this student, batch, and month",
       });
     }
 
@@ -53,10 +55,22 @@ export async function createPayment(req, res) {
 }
 
 
-export  function getPayment(){
-   try{
-     const thu = 5;
-   }catch(err){
-      console.log(err)
-   }
+export async function getPayment(req, res) {
+  try {
+    const { studentId } = req.query;
+
+    const payment = await Payment.find({ studentId });
+
+    if (!payment) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    res.json(payment);
+
+  } catch (err) {
+    res.status(500).json({
+      message: "Error getting payment",
+      error: err.message,
+    });
+  }
 }

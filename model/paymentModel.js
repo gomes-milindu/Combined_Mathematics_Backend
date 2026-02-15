@@ -7,15 +7,11 @@ const paymentModel = new mongoose.Schema({
     required: true,
   },
 
-  courseId: {
+  batch: {
     type: String,
     required: true,
   },
 
-  class: {
-    type: String,
-    required: true,
-  },
 
   month: {
     type: String, // e.g. "2026-02"
@@ -30,7 +26,12 @@ const paymentModel = new mongoose.Schema({
   status: {
     type: String,
     enum: ["PAID", "PENDING"],
-    default: "PENDING",
+    default: "PAID",
+  },
+
+  cardType:{
+    type: String,
+    default:"Full Payment"
   },
 
   paidDate: {
@@ -41,7 +42,7 @@ const paymentModel = new mongoose.Schema({
 
 // 🔥 IMPORTANT
 paymentModel.index(
-  { studentId: 1, courseId: 1, month: 1 },
+  { studentId: 1, batch: 1, month: 1 },
   { unique: true }
 );
 

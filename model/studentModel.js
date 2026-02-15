@@ -35,7 +35,7 @@ const studentModel = new mongoose.Schema({
     },
   
   // ENROLLMENT INFORMATION
-  course: {
+  institute: {
         type: [String],
         required: true,
         

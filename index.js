@@ -3,8 +3,6 @@
 
 import express from 'express';
 import mongoose from 'mongoose';
-import User from "./model/studentModel.js";
-import userRoute from './router/studentRouter.js';
 import studentRoute from './router/studentRouter.js';
 import addCourseRoute from './router/addCourse.js';
 import jwt from "jsonwebtoken";
@@ -12,6 +10,7 @@ import cors from "cors"
 import {createAdmin} from './controller/adminController.js';
 import adminRouter from './router/adminRouter.js';
 import paymentRoute from './router/paymentRouter.js';
+import dashboardRoute from './router/dashboardRoute.js';
 
 
 
@@ -78,5 +77,7 @@ app.use("/student",studentRoute)
 app.use("/addcourse",addCourseRoute)
 app.use("/admin", adminRouter)
 app.use("/payment", paymentRoute)
+app.use("/dashboard", dashboardRoute)
+
 
 
