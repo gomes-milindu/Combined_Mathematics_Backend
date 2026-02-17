@@ -14,7 +14,7 @@ const sendSMS = async (to, message) => {
     const response = await axios.post(
       "https://quicksend.lk/Client/api.php?FUN=SEND_SINGLE",
       {
-        senderID: "QKSendDemo",
+        senderID: "QuickSendId",
         to: to,
         msg: message
       },

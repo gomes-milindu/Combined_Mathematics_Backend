@@ -41,23 +41,12 @@ export async function createPayment(req, res) {
     const studentDet = await Student.findOne({ studentId });
     console.log("Student Details:", studentDet);
 
-    const message = `Dear Parent/Guardian,
-
-We are pleased to confirm that the payment for your child's enrollment has been successfully processed.
-
-Payment Details
-━━━━━━━━━━━━━━━
-Student Name: ${studentDet.firstName} ${studentDet.lastName}
-Amount Paid: LKR ${savedPayment.amount}
-Payment Method: ${savedPayment.cardType}
-Date & Time: ${savedPayment.paidDate.toLocaleString()}
-Payment Status: ${savedPayment.status}
-
-For any questions or concerns:
-
-📞 Phone: +94 11 234 5678
-
-
+    const message = `Combined Maths Class
+Payment Received
+${studentDet.firstName} ${studentDet.lastName}
+LKR ${savedPayment.amount} | ${savedPayment.cardType}
+${savedPayment.month} - ${savedPayment.batch}
+${savedPayment.status}
 Thank you`;
 
     await sendSMS(studentDet.phone, message);
