@@ -1,6 +1,3 @@
-
-
-
 import express from 'express';
 import mongoose from 'mongoose';
 import studentRoute from './router/studentRouter.js';
@@ -25,7 +22,8 @@ function start() {
     console.log('Server started');
 }
 
-const connectionString = "mongodb+srv://user:1234@cluster0.bujo2ta.mongodb.net/?appName=Cluster0"
+const connectionString = "mongodb+srv://user-1:1234@cluster0.vw9lpta.mongodb.net/?appName=Cluster0"
+
 mongoose.connect(connectionString).then(
     ()=>{
         console.log('Connected to the database');

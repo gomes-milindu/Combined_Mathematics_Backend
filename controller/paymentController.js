@@ -1,4 +1,9 @@
 import Payment from "../model/paymentModel.js";
+import Student from "../model/studentModel.js";
+import sendSMS from "../utils/sendSms.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export async function createPayment(req, res) {
   try {
@@ -8,7 +13,7 @@ export async function createPayment(req, res) {
       month,
       amount,
       // status,
-      cardType
+      cardType,
     } = req.body;
 
     // 1️⃣ Basic validation
@@ -25,21 +30,43 @@ export async function createPayment(req, res) {
       // class: className,
       month,
       amount,
-      status:"PAID",
+      status: "PAID",
       cardType,
-      paidDate: new Date()
+      paidDate: new Date(),
     });
 
     // 3️⃣ Save (Mongo handles duplicates)
     const savedPayment = await payment.save();
 
+    const studentDet = await Student.findOne({ studentId });
+    console.log("Student Details:", studentDet);
+
+    const message = `Dear Parent/Guardian,
+
+We are pleased to confirm that the payment for your child's enrollment has been successfully processed.
+
+Payment Details
+━━━━━━━━━━━━━━━
+Student Name: ${studentDet.firstName} ${studentDet.lastName}
+Amount Paid: LKR ${savedPayment.amount}
+Payment Method: ${savedPayment.cardType}
+Date & Time: ${savedPayment.paidDate.toLocaleString()}
+Payment Status: ${savedPayment.status}
+
+For any questions or concerns:
+
+📞 Phone: +94 11 234 5678
+
+
+Thank you`;
+
+    await sendSMS(studentDet.phone, message);
+
     return res.status(201).json({
       message: "Payment created successfully",
       payment: savedPayment,
     });
-
   } catch (err) {
-
     // 4️⃣ Duplicate month handling
     if (err.code === 11000) {
       return res.status(409).json({
@@ -54,7 +81,6 @@ export async function createPayment(req, res) {
   }
 }
 
-
 export async function getPayment(req, res) {
   try {
     const { studentId } = req.query;
@@ -66,7 +92,6 @@ export async function getPayment(req, res) {
     }
 
     res.json(payment);
-
   } catch (err) {
     res.status(500).json({
       message: "Error getting payment",
