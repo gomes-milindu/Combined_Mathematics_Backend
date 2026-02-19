@@ -6,6 +6,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export async function createPayment(req, res) {
+  // if(req.user == student){
+  //   return
+  // }
   try {
     const {
       studentId,
@@ -37,6 +40,7 @@ export async function createPayment(req, res) {
 
     // 3️⃣ Save (Mongo handles duplicates)
     const savedPayment = await payment.save();
+    console.log("Payment saved:", savedPayment);
 
     const studentDet = await Student.findOne({ studentId });
     console.log("Student Details:", studentDet);
@@ -63,6 +67,7 @@ Thank you`;
       });
     }
 
+    
     return res.status(500).json({
       message: "Error creating payment",
       error: err.message,

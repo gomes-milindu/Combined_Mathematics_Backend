@@ -76,6 +76,5 @@ app.use("/addcourse",addCourseRoute)
 app.use("/admin", adminRouter)
 app.use("/payment", paymentRoute)
 app.use("/dashboard", dashboardRoute)
-
-
+// app.use(controller)
 
