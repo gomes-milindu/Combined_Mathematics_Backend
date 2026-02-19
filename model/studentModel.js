@@ -31,13 +31,13 @@ const studentModel = new mongoose.Schema({
     
     password:{
         type:String,
-        required: true
+        // required: true
     },
   
   // ENROLLMENT INFORMATION
-  course: {
+  institute: {
         type: [String],
-        require: true,
+        required: true,
         
     },          
   batch: {
@@ -50,8 +50,7 @@ const studentModel = new mongoose.Schema({
   // STATUS
   qrCode: {
         type: String,
-        required: true,
-        unique: true
+        
         
     },      
   isActive: {
