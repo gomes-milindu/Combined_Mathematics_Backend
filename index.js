@@ -14,15 +14,18 @@ import dashboardRoute from './router/dashboardRoute.js';
 const app = express();
 app.use(cors())
 app.use(express.json());
-app.listen(8080, start);
+
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, start);
 
 
 
 function start() {
-    console.log('Server started');
+    console.log(`Server started on port ${PORT}`);
 }
 
-const connectionString = "mongodb+srv://user-1:1234@cluster0.vw9lpta.mongodb.net/?appName=Cluster0"
+const connectionString = process.env.MONGODB_URI;
+
 
 mongoose.connect(connectionString).then(
     ()=>{
