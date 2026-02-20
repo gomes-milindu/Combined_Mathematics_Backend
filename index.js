@@ -12,7 +12,28 @@ import dashboardRoute from './router/dashboardRoute.js';
 
 
 const app = express();
-app.use(cors())
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+        
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
