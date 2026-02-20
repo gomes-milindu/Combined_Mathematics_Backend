@@ -34,11 +34,15 @@ app.use(
   })
 );
 
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.status(200).send("Combined Mathematics Backend is running");
+});
+
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
-
-app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, start);
