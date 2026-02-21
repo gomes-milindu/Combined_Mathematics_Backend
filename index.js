@@ -18,6 +18,7 @@ const allowedOrigins = new Set(
   [
     "http://localhost:5173",
     "http://localhost:3000",
+    "https://combined-mathematics-frontend.vercel.app",
     process.env.FRONTEND_URL,
   ].filter(Boolean)
 );
