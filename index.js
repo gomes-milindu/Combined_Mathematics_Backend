@@ -28,7 +28,7 @@ const corsOptions = {
     if (/^https:\/\/.*\.vercel\.app$/.test(origin))
       return callback(null, true);
 
-    console.error("❌ CORS blocked:", origin);
+    console.error("CORS blocked:", origin);
     return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -38,7 +38,12 @@ const corsOptions = {
 
 
 app.use(cors(corsOptions));
-app.options("/*", cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return cors(corsOptions)(req, res, next);
+  }
+  next();
+});
 
 app.use(express.json());
 
