@@ -1,117 +1,82 @@
 import "dotenv/config";
-import express from 'express';
-import mongoose from 'mongoose';
-import studentRoute from './router/studentRouter.js';
-import addCourseRoute from './router/addCourse.js';
-import jwt from "jsonwebtoken";
-import cors from "cors"
-import {createAdmin} from './controller/adminController.js';
-import adminRouter from './router/adminRouter.js';
-import paymentRoute from './router/paymentRouter.js';
-import dashboardRoute from './router/dashboardRoute.js';
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
 
-
+// routes
+import studentRoute from "./router/studentRouter.js";
+import addCourseRoute from "./router/addCourse.js";
+import adminRouter from "./router/adminRouter.js";
+import paymentRoute from "./router/paymentRouter.js";
+import dashboardRoute from "./router/dashboardRoute.js";
 
 const app = express();
 
-const allowedOrigins = new Set(
-  [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://combined-mathematics-frontend.vercel.app",
-    process.env.FRONTEND_URL,
-  ].filter(Boolean)
-);
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // Postman/curl
-      if (allowedOrigins.has(origin)) return cb(null, true);
-      return cb(null, false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+const allowlist = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://combined-mathematics-frontend.vercel.app",
+];
 
-app.options(/.*/, cors());
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    if (allowlist.includes(origin)) return callback(null, true);
+
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin))
+      return callback(null, true);
+
+    console.error("❌ CORS blocked:", origin);
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false, 
+};
+
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 
 app.use(express.json());
 
+
 app.get("/", (req, res) => {
-  res.status(200).send("Combined Mathematics Backend is running");
+  res.send("Combined Mathematics Backend is running");
 });
 
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.json({ status: "ok" });
 });
 
+app.get("/cors-test", (req, res) => {
+  res.json({
+    ok: true,
+    origin: req.headers.origin || "no-origin",
+  });
+});
+
+
+app.use("/student", studentRoute);
+app.use("/addcourse", addCourseRoute);
+app.use("/admin", adminRouter);
+app.use("/payment", paymentRoute);
+app.use("/dashboard", dashboardRoute);
+
+
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, start);
 
-
-
-
-function start() {
-    console.log(`Server started on port ${PORT}`);
-}
-
-const connectionString = process.env.MONGODB_URI;
-
-
-mongoose.connect(connectionString).then(
-    ()=>{
-        console.log('Connected to the database');
-    }
-).catch(
-    ()=>{
-        console.log('Could not connect to the server');
-    }
-)
-
-// app.use(
-//     (req,res,next)=>{
-//         let token = req.header("Authorization")
-
-//         if(token != null)
-//         {
-//                 token = token.replace("Bearer ","")
-//                 console.log(token)
-//                 jwt.verify(token, 
-//                     'JWT-Token' ,
-                    
-                
-//                     (err,decoded)=>{
-//                         if(decoded == null){
-//                             res.json(
-//                                 {
-//                                     message: "invalid token"
-//                                 }
-//                             )
-//                             return // methanin ehata run krwnna epa
-//                         }else{
-//                             console.log(decoded)
-//                             req.user = decoded
-//                         }
-//                     }
-                    
-//                 ) // token eka decrypt krnwa
-
-//                 next()
-//         }else{
-//             console.log(token)
-//         }
-
-        
-//     }
-// )
-
-app.use("/student",studentRoute)
-app.use("/addcourse",addCourseRoute)
-app.use("/admin", adminRouter)
-app.use("/payment", paymentRoute)
-app.use("/dashboard", dashboardRoute)
-// app.use(controller)
-
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("MongoDB connected");
+    app.listen(PORT, () =>
+      console.log(`Server running on port ${PORT}`)
+    );
+  })
+  .catch((err) => {
+    console.error("MongoDB connection failed", err);
+  });
