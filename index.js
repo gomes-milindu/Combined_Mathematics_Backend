@@ -63,6 +63,10 @@ app.get("/cors-test", (req, res) => {
   });
 });
 
+app.use((req, res, next) => {
+  console.log("➡️", req.method, req.originalUrl, "origin:", req.headers.origin);
+  next();
+});
 
 app.use("/student", studentRoute);
 app.use("/addcourse", addCourseRoute);
@@ -84,3 +88,10 @@ mongoose
   .catch((err) => {
     console.error("MongoDB connection failed", err);
   });
+
+  app.use((err, req, res, next) => {
+  console.error("SERVER ERROR:", err);
+  res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
+  });
+});
