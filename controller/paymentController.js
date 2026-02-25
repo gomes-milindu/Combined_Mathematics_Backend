@@ -1,6 +1,6 @@
 import Payment from "../model/paymentModel.js";
 import Student from "../model/studentModel.js";
-import sendSMS from "../utils/sendSms.js";
+import sendSMS from "../utils/sendSMS.js";
 import dotenv from "dotenv";
 import { isAdmin } from "./adminController.js";
 
@@ -20,14 +20,13 @@ export async function createPayment(req, res) {
       cardType,
     } = req.body;
 
-    // 1️⃣ Basic validation
-    if (!studentId || !batch || !month  || !cardType) {
+
+    if (!studentId || !batch || !month || !amount || !cardType) {
       return res.status(400).json({
         message: "All fields are required",
       });
     }
 
-    // 2️⃣ Always create as PENDING
     const payment = new Payment({
       studentId,
       batch,
@@ -39,7 +38,6 @@ export async function createPayment(req, res) {
       paidDate: new Date(),
     });
 
-    // 3️⃣ Save (Mongo handles duplicates)
     const savedPayment = await payment.save();
     
 
@@ -62,7 +60,6 @@ Thank you`;
       sendSMS: {status: "success"},
     });
   } catch (err) {
-    // 4️⃣ Duplicate month handling
     if (err.code === 11000) {
       return res.status(409).json({
         message: "Payment already exists for this student, batch, and month",
