@@ -78,7 +78,7 @@ app.use("/dashboard", dashboardRoute);
 const PORT = process.env.PORT || 8080;
 
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.DATABASE_URL)
   .then(() => {
     console.log("MongoDB connected");
     app.listen(PORT, () =>
