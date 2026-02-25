@@ -58,7 +58,8 @@ app.use(
                             
                             req.user = decoded
                         }
-                    }
+                    },
+                    console.log("Hello from middleware")
                     
                 ) // token eka decrypt krnwa
 
