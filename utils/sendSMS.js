@@ -14,7 +14,7 @@ const sendSMS = async (to, message) => {
     const response = await axios.post(
       "https://quicksend.lk/Client/api.php?FUN=SEND_SINGLE",
       {
-        senderID: "QuickSendId",
+        senderID: process.env.QUICKSEND_SENDER_ID,
         to: to,
         msg: message
       },
@@ -30,10 +30,12 @@ const sendSMS = async (to, message) => {
     );
 
     console.log("SMS sent:", response.data);
+    return { status: "success", data: response.data };
 
   } catch (error) {
     console.log("Status:", error.response?.status);
     console.log("Data:", error.response?.data);
+    return { status: "failed", reason: error.response?.data || error.message };
   }
 };
 

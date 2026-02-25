@@ -19,8 +19,9 @@ const paymentModel = new mongoose.Schema({
   },
 
   amount: {
-    type: Number,
+    type: String,
     required: true,
+    default: "3800",
   },
 
   status: {
