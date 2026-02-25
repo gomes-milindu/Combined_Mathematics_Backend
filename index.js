@@ -22,7 +22,7 @@ function start() {
     console.log('Server started');
 }
 
-const connectionString = "mongodb+srv://user-1:1234@cluster0.vw9lpta.mongodb.net/?appName=Cluster0"
+const connectionString = process.env.DATABASE_URL.replace("<db_password>", process.env.DB_PASSWORD)
 
 mongoose.connect(connectionString).then(
     ()=>{
@@ -34,42 +34,41 @@ mongoose.connect(connectionString).then(
     }
 )
 
-// app.use(
-//     (req,res,next)=>{
-//         let token = req.header("Authorization")
+app.use(
+    (req,res,next)=>{
+        let token = req.header("Authorization")
 
-//         if(token != null)
-//         {
-//                 token = token.replace("Bearer ","")
-//                 console.log(token)
-//                 jwt.verify(token, 
-//                     'JWT-Token' ,
+        if(token != null)
+        {
+                token = token.replace("Bearer ","")
+                
+                jwt.verify(token, 
+                    process.env.JWT_SECRET,
                     
                 
-//                     (err,decoded)=>{
-//                         if(decoded == null){
-//                             res.json(
-//                                 {
-//                                     message: "invalid token"
-//                                 }
-//                             )
-//                             return // methanin ehata run krwnna epa
-//                         }else{
-//                             console.log(decoded)
-//                             req.user = decoded
-//                         }
-//                     }
+                    (err,decoded)=>{
+                        if(decoded == null){
+                            res.json(
+                                {
+                                    message: "invalid token"
+                                }
+                            )
+                            return // methanin ehata run krwnna epa
+                        }else{
+                            
+                            req.user = decoded
+                        }
+                    }
                     
-//                 ) // token eka decrypt krnwa
+                ) // token eka decrypt krnwa
 
-//                 next()
-//         }else{
-//             console.log(token)
-//         }
+            
+        }
+        next()
 
         
-//     }
-// )
+    }
+)
 
 app.use("/student",studentRoute)
 app.use("/addcourse",addCourseRoute)

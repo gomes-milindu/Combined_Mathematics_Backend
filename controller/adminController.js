@@ -1,4 +1,6 @@
 import AdminModel from "../model/adminModel.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 export async function createAdmin(req, res) {
   try {
@@ -16,7 +18,14 @@ export async function createAdmin(req, res) {
       return res.status(409).json({ message: "Admin already exists" });
     }
 
-    const admin = new AdminModel({ name, userName, password, role });
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const admin = new AdminModel({
+      name,
+      userName,
+      password: hashedPassword,
+      role,
+    });
+    console.log("Admin to be saved:", admin);
 
     await admin.save();
 
@@ -28,11 +37,11 @@ export async function createAdmin(req, res) {
 }
 
 export function isAdmin(req, res) {
-  if (req.body.role == null) {
+  if (req.user.role == null) {
     return false;
   }
 
-  if (req.body.role != "admin") {
+  if (req.user.role != "admin") {
     return false;
   }
 
@@ -41,17 +50,45 @@ export function isAdmin(req, res) {
 
 export function loginAdmin(req, res) {
   console.log("Login Admin Working");
+  console.log(req.body);
+
+  if (!req.body.role || !req.body.userName || !req.body.password) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide role, userName and password",
+    });
+  }
+
   if (req.body.role == "admin") {
-    console.log("if working");
     AdminModel.findOne({ userName: req.body.userName }).then((user) => {
-      console.log(user.password);
-      if (req.body.password == user.password) {
-        res.json({
-          message: "Admin password Match",
+      const isPasswordMaching = bcrypt.compareSync(
+        req.body.password,
+        user.password,
+      );
+
+      if (isPasswordMaching) {
+        const token = jwt.sign(
+          {
+            id: user._id,
+            role: user.role,
+          },
+          "JWT-Token",
+          { expiresIn: "1d" },
+        );
+
+        return res.json({
+          success: true,
+          message: "Login Successful",
+          token: token,
         });
-        
+
+      } else {
+        return res.status(400).json({
+          success: false,
+          password: "Admin password does not match",
+        });
       }
-      console.log("user is working");
+      
     });
   }
 }
@@ -61,7 +98,7 @@ export async function getAllAdmins(req, res) {
     const admins = await AdminModel.find();
     return res.status(200).json(admins);
   } catch (error) {
-    console.error(error);
+    
     return res.status(500).json({ message: "Error fetching admins", error });
   }
 }
