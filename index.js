@@ -38,9 +38,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// handle preflight properly
-app.options("/*", cors(corsOptions))
-
 app.use(express.json());
 
 /*Request logger*/
