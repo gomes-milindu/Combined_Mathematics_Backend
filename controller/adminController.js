@@ -71,7 +71,7 @@ export function loginAdmin(req, res) {
             id: user._id,
             role: user.role,
           },
-          "JWT-Token",
+          process.env.JWT_SECRET,
           { expiresIn: "1d" },
         );
 
