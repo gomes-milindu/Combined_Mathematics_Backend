@@ -8,6 +8,7 @@ import {createAdmin} from './controller/adminController.js';
 import adminRouter from './router/adminRouter.js';
 import paymentRoute from './router/paymentRouter.js';
 import dashboardRoute from './router/dashboardRoute.js';
+import pricingRoute from './router/pricingRouter.js';
 
 
 
@@ -61,7 +62,7 @@ app.use(
                     },
                     console.log("Hello from middleware")
                     
-                ) // token eka decrypt krnwa
+                ) 
 
             
         }
@@ -75,6 +76,7 @@ app.use("/student",studentRoute)
 app.use("/addcourse",addCourseRoute)
 app.use("/admin", adminRouter)
 app.use("/payment", paymentRoute)
+app.use("/pricing", pricingRoute)
 app.use("/dashboard", dashboardRoute)
 // app.use(controller)
 

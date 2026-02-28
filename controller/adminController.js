@@ -25,7 +25,7 @@ export async function createAdmin(req, res) {
       password: hashedPassword,
       role,
     });
-    console.log("Admin to be saved:", admin);
+    
 
     await admin.save();
 
@@ -49,8 +49,7 @@ export function isAdmin(req, res) {
 }
 
 export function loginAdmin(req, res) {
-  console.log("Login Admin Working");
-  console.log(req.body);
+  
 
   if (!req.body.role || !req.body.userName || !req.body.password) {
     return res.status(400).json({
