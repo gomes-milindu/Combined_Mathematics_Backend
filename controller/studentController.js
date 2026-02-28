@@ -66,7 +66,7 @@ export async function createStudent(req, res) {
 
     const qrText = student._id.toString();
     const qrBuffer = await QRCode.toBuffer(qrText, {
-    width: 200,        // size in pixels (default is ~116px)
+    width: 500,        // size in pixels (default is ~116px)
     margin: 2,         // quiet zone margin (default is 4)
     errorCorrectionLevel: 'H',  // H = highest quality (L, M, Q, H)
     color: {
