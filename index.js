@@ -3,13 +3,20 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import jwt from "jsonwebtoken";
+import cors from "cors"
+import {createAdmin} from './controller/adminController.js';
+import adminRouter from './router/adminRouter.js';
+import paymentRoute from './router/paymentRouter.js';
+import dashboardRoute from './router/dashboardRoute.js';
+import pricingRoute from './router/pricingRouter.js';
+
 
 // routes
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
-import adminRouter from "./router/adminRouter.js";
-import paymentRoute from "./router/paymentRouter.js";
-import dashboardRoute from "./router/dashboardRoute.js";
+
+
+
 
 const app = express();
 
@@ -103,16 +110,60 @@ if (!connectionString) {
   throw new Error("Missing env var: MONGODB_URI (set it in Railway → Variables)");
 }
 
-mongoose
-  .connect(connectionString)
-  .then(() => {
-    console.log("Connected to the database");
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.log("Could not connect to the server");
-    console.error(err);
-    process.exit(1);
-  });
+// const connectionString = process.env.DATABASE_URL.replace("<db_password>", process.env.DB_PASSWORD)
+
+mongoose.connect(connectionString).then(
+    ()=>{
+        console.log('Connected to the database');
+    }
+).catch(
+    ()=>{
+        console.log('Could not connect to the server');
+    }
+)
+
+app.use(
+    (req,res,next)=>{
+        let token = req.header("Authorization")
+
+        if(token != null)
+        {
+                token = token.replace("Bearer ","")
+                
+                jwt.verify(token, 
+                    process.env.JWT_SECRET,
+                    
+                
+                    (err,decoded)=>{
+                        if(decoded == null){
+                            res.json(
+                                {
+                                    message: "invalid token"
+                                }
+                            )
+                            return // methanin ehata run krwnna epa
+                        }else{
+                            
+                            req.user = decoded
+                        }
+                    },
+                    console.log("Hello from middleware")
+                    
+                ) 
+
+            
+        }
+        next()
+
+        
+    }
+)
+
+app.use("/student",studentRoute)
+app.use("/addcourse",addCourseRoute)
+app.use("/admin", adminRouter)
+app.use("/payment", paymentRoute)
+app.use("/pricing", pricingRoute)
+app.use("/dashboard", dashboardRoute)
+// app.use(controller)
+
