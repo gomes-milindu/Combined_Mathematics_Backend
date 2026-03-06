@@ -21,6 +21,7 @@ export async function createStudent(req, res) {
       institute,
       batch,
       dateOfBirth,
+      paymentType="Full Payment",
       isActive=true,
     } = req.body;
 
@@ -60,6 +61,7 @@ export async function createStudent(req, res) {
       institute,
       batch,
       dateOfBirth,
+      paymentType,
       isActive,
     });
     

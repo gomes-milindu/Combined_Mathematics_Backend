@@ -21,7 +21,7 @@ export async function createPayment(req, res) {
     } = req.body;
 
 
-    if (!studentId || !batch || !month || !amount || !cardType) {
+    if (!studentId || !batch || !month || amount == undefined || !cardType) {
       return res.status(400).json({
         message: "All fields are required",
       });
