@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { de } from "zod/locales";
 
 const studentModel = new mongoose.Schema({
     
@@ -71,6 +72,11 @@ const studentModel = new mongoose.Schema({
     role:{
         type:String,
         default:"student"
+    },
+
+    paymentType:{
+        type:String,
+        default:"Full Payment"
     }
 })
 

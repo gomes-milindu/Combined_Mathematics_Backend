@@ -4,12 +4,19 @@ import mongoose from "mongoose";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 
+import {createAdmin} from './controller/adminController.js';
+import adminRouter from './router/adminRouter.js';
+import paymentRoute from './router/paymentRouter.js';
+import dashboardRoute from './router/dashboardRoute.js';
+import pricingRoute from './router/pricingRouter.js';
+
+
 // routes
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
-import adminRouter from "./router/adminRouter.js";
-import paymentRoute from "./router/paymentRouter.js";
-import dashboardRoute from "./router/dashboardRoute.js";
+
+
+
 
 const app = express();
 
@@ -85,6 +92,7 @@ app.use("/student", studentRoute);
 app.use("/addcourse", addCourseRoute);
 app.use("/admin", adminRouter);
 app.use("/payment", paymentRoute);
+app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 
 app.use((err, req, res, next) => {
@@ -103,16 +111,13 @@ if (!connectionString) {
   throw new Error("Missing env var: MONGODB_URI (set it in Railway → Variables)");
 }
 
-mongoose
-  .connect(connectionString)
-  .then(() => {
-    console.log("Connected to the database");
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.log("Could not connect to the server");
-    console.error(err);
-    process.exit(1);
-  });
+mongoose.connect(connectionString).then(
+    () => {
+        console.log('Connected to the database');
+        app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+    }
+).catch(
+    (err) => {
+        console.log('Could not connect to the server:', err.message);
+    }
+);
