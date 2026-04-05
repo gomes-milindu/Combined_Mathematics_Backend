@@ -48,46 +48,73 @@ export function isAdmin(req, res) {
   return true;
 }
 
-export function loginAdmin(req, res) {
-  
+export async function loginAdmin(req, res) {
+  try {
+    const { userName, password, role } = req.body;
 
-  if (!req.body.role || !req.body.userName || !req.body.password) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide role, userName and password",
+    // validation
+    if (!userName || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide role, userName and password",
+      });
+    }
+
+    if (role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid role",
+      });
+    }
+
+    // find user
+    const user = await AdminModel.findOne({ userName });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    // compare password
+    const isPasswordMatching = bcrypt.compareSync(password, user.password);
+
+    if (!isPasswordMatching) {
+      return res.status(400).json({
+        success: false,
+        message: "Password does not match",
+      });
+    }
+
+    // check JWT secret
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        success: false,
+        message: "JWT_SECRET is missing in server",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Login Successful",
+      token,
     });
-  }
 
-  if (req.body.role == "admin") {
-    AdminModel.findOne({ userName: req.body.userName }).then((user) => {
-      const isPasswordMaching = bcrypt.compareSync(
-        req.body.password,
-        user.password,
-      );
-
-      if (isPasswordMaching) {
-        const token = jwt.sign(
-          {
-            id: user._id,
-            role: user.role,
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: "1d" },
-        );
-
-        return res.json({
-          success: true,
-          message: "Login Successful",
-          token: token,
-        });
-
-      } else {
-        return res.status(400).json({
-          success: false,
-          password: "Admin password does not match",
-        });
-      }
-      
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during login",
     });
   }
 }
