@@ -28,7 +28,7 @@ app.use(cors({
       origin === "https://combined-mathematics-frontend.vercel.app" ||
       origin.endsWith(".vercel.app") // allow all Vercel deployments
     ) {
-      return callback(null, true);
+      return callback(null, true);//add
     }
 
     console.warn("Blocked by CORS:", origin);
