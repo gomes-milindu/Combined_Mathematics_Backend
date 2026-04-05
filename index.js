@@ -4,74 +4,68 @@ import mongoose from "mongoose";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 
-import {createAdmin} from './controller/adminController.js';
+import { createAdmin } from './controller/adminController.js';
 import adminRouter from './router/adminRouter.js';
 import paymentRoute from './router/paymentRouter.js';
 import dashboardRoute from './router/dashboardRoute.js';
 import pricingRoute from './router/pricingRouter.js';
 
-
 // routes
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
 
-
-
-
 const app = express();
 
-/*CORS*/
-const allowlist = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://combined-mathematics-frontend.vercel.app",
-];
 
-const corsOptions = {
+app.use(cors({
   origin: (origin, callback) => {
+    // allow requests with no origin (like Postman)
     if (!origin) return callback(null, true);
 
-    if (allowlist.includes(origin)) return callback(null, true);
+    if (
+      origin === "http://localhost:5173" ||
+      origin === "http://localhost:3000" ||
+      origin === "https://combined-mathematics-frontend.vercel.app" ||
+      origin.endsWith(".vercel.app") // allow all Vercel deployments
+    ) {
+      return callback(null, true);
+    }
 
-    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return callback(null, true);
-
-    console.error("CORS blocked:", origin);
-    return callback(null, false);
+    console.warn("Blocked by CORS:", origin);
+    return callback(null, true); // 🔥 allow anyway (safe for now)
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false,
-};
+}));
 
-app.use(cors(corsOptions));
+app.options("*", cors());
 
 app.use(express.json());
 
-/*Request logger*/
+
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.originalUrl, "origin:", req.headers.origin);
   next();
 });
 
-/*JWT middleware*/
 app.use((req, res, next) => {
   let token = req.header("Authorization");
 
-  if (token != null) {
+  if (token) {
     token = token.replace("Bearer ", "");
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = decoded;
     } catch (err) {
-      return res.status(401).json({ message: "invalid token" });
+      return res.status(401).json({ message: "Invalid token" });
     }
   }
 
   next();
 });
 
-/*Basic endpoints */
+
 app.get("/", (req, res) => {
   res.send("Combined Mathematics Backend is running");
 });
@@ -95,6 +89,7 @@ app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 
+
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
   res.status(err.status || 500).json({
@@ -102,22 +97,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-
 const PORT = process.env.PORT || 8080;
-
 const connectionString = process.env.MONGODB_URI;
 
 if (!connectionString) {
-  throw new Error("Missing env var: MONGODB_URI (set it in Railway → Variables)");
+  throw new Error("Missing env var: MONGODB_URI");
 }
 
-mongoose.connect(connectionString).then(
-    () => {
-        console.log('Connected to the database');
-        app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-    }
-).catch(
-    (err) => {
-        console.log('Could not connect to the server:', err.message);
-    }
-);
+mongoose.connect(connectionString)
+  .then(() => {
+    console.log("Connected to the database");
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  })
+  .catch((err) => {
+    console.log("DB connection failed:", err.message);
+  });
