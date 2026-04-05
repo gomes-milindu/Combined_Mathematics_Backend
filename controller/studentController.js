@@ -5,7 +5,6 @@ import { isAdmin } from "./adminController.js";
 
 export async function createStudent(req, res) {
 
-  // ✅ FIX 1: correct admin check
   if (!isAdmin(req, res)) {
     return res.status(403).json({
       message: "Access denied. Admin privileges required."

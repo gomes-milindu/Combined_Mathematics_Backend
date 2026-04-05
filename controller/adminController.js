@@ -37,11 +37,10 @@ export async function createAdmin(req, res) {
 }
 
 export function isAdmin(req, res) {
-  if (req.user.role == null) {
-    return false;
-  }
-
-  if (req.user.role != "admin") {
+  if (!req.user || req.user.role !== "admin") {
+    res.status(403).json({
+      message: "Access denied. Admin only",
+    });
     return false;
   }
 
