@@ -14,9 +14,6 @@ import addCourseRoute from "./router/addCourse.js";
 
 const app = express();
 
-/* =========================================
-   🔥 FORCE CORS (RUNS FIRST - VERY IMPORTANT)
-========================================= */
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -30,22 +27,13 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================================
-   BODY PARSER
-========================================= */
 app.use(express.json());
 
-/* =========================================
-   REQUEST LOGGER
-========================================= */
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.originalUrl, "origin:", req.headers.origin);
   next();
 });
 
-/* =========================================
-   JWT MIDDLEWARE
-========================================= */
 app.use((req, res, next) => {
   let token = req.header("Authorization");
 
@@ -63,11 +51,9 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================================
-   BASIC ROUTES
-========================================= */
+
 app.get("/", (req, res) => {
-  res.send("✅ Combined Mathematics Backend is running");
+  res.send("Combined Mathematics Backend is running");
 });
 
 app.get("/health", (req, res) => {
@@ -84,9 +70,7 @@ app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 
-/* =========================================
-   ERROR HANDLER
-========================================= */
+
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
   res.status(err.status || 500).json({
@@ -94,9 +78,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-/* =========================================
-   DB + SERVER START
-========================================= */
+
 const PORT = process.env.PORT || 8080;
 const connectionString = process.env.MONGODB_URI;
 
@@ -106,9 +88,9 @@ if (!connectionString) {
 
 mongoose.connect(connectionString)
   .then(() => {
-    console.log("✅ Connected to the database");
+    console.log("Connected to the database");
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })
   .catch((err) => {
-    console.log("❌ DB connection failed:", err.message);
+    console.log("DB connection failed:", err.message);
   });

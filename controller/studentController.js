@@ -3,14 +3,18 @@ import QRCode from 'qrcode'
 import supabase from "../config/supabase.js";
 import { isAdmin } from "./adminController.js";
 
-
-
-
 export async function createStudent(req, res) {
-  if(!isAdmin) {
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
+
+  // ✅ FIX 1: correct admin check
+  if (!isAdmin(req, res)) {
+    return res.status(403).json({
+      message: "Access denied. Admin privileges required."
+    });
   }
+
   try {
+    console.log("STUDENT BODY:", req.body); // debug
+
     const {
       studentId,
       firstName,
@@ -21,36 +25,30 @@ export async function createStudent(req, res) {
       institute,
       batch,
       dateOfBirth,
-      paymentType="Full Payment",
-      isActive=true,
+      paymentType = "Full Payment",
+      isActive = true,
     } = req.body;
 
-  
-    // Check required fields
     if (!studentId || !email || !phone) {
       return res.status(400).json({
         message: "Fill the Details",
       });
     }
 
-
-    // Check if student already exists by EMAIL
-    const existingStudentByEmail = await Student.findOne({ email });
-    if (existingStudentByEmail) {
+    const existingEmail = await Student.findOne({ email });
+    if (existingEmail) {
       return res.status(400).json({
         message: "Student Email Already Exists",
       });
     }
 
-    // Check if student already exists by STUDENT ID
-    const existingStudentById = await Student.findOne({ studentId });
-    if (existingStudentById) {
+    const existingId = await Student.findOne({ studentId });
+    if (existingId) {
       return res.status(400).json({
         message: "Student ID already registered",
       });
     }
 
-    // Create student instance (not saved yet)
     const student = new Student({
       studentId,
       firstName,
@@ -64,21 +62,19 @@ export async function createStudent(req, res) {
       paymentType,
       isActive,
     });
-    
 
-    const qrText = student._id.toString();
-    const qrBuffer = await QRCode.toBuffer(qrText, {
-    width: 500,        // size in pixels (default is ~116px)
-    margin: 2,         // quiet zone margin (default is 4)
-    errorCorrectionLevel: 'H',  // H = highest quality (L, M, Q, H)
-    color: {
-        dark: '#000000',   // QR dots color
-        light: '#FFFFFF'   // background color
-    }
-});
+    await student.save();
 
+    const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
+      width: 500,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
 
-    // const fileName = `qr-${uuidv4()}.png`;
     const fileName = `${studentId}.png`;
 
 
@@ -89,34 +85,34 @@ export async function createStudent(req, res) {
       });
 
     if (error) {
-      // console.error("Supabase Upload Error:", error);
-      throw new Error(`Supabase upload failed: ${error.message}`);
+      console.error("SUPABASE ERROR:", error);
+      throw new Error(error.message);
     }
 
-
-    const { data: publicUrl } = supabase.storage
+    const { data } = supabase.storage
       .from("qr-codes")
       .getPublicUrl(fileName);
 
-
-    student.qrCode = publicUrl.publicUrl;
+    student.qrCode = data.publicUrl;
 
 
     await student.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Student saved successfully",
       student,
     });
 
   } catch (err) {
-    // console.error("REAL ERROR:", err);
+    console.error("STUDENT ERROR:", err);
+
     if (err.code === 11000) {
       return res.status(400).json({
         message: "Duplicate key error",
         error: err.message
       });
     }
+
     if (err.name === 'ValidationError') {
       return res.status(400).json({
         message: "Validation Error",
@@ -124,7 +120,7 @@ export async function createStudent(req, res) {
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Student not saved",
       error: err.message,
     });
