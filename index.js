@@ -1,51 +1,51 @@
 import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
-import cors from "cors";
 import jwt from "jsonwebtoken";
 
+// routes
 import { createAdmin } from './controller/adminController.js';
 import adminRouter from './router/adminRouter.js';
 import paymentRoute from './router/paymentRouter.js';
 import dashboardRoute from './router/dashboardRoute.js';
 import pricingRoute from './router/pricingRouter.js';
-
-// routes
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
 
 const app = express();
 
-/* =========================
-   ✅ SIMPLE & SAFE CORS (FINAL)
-========================= */
-app.use(cors({
-  origin: "*", // allow all origins (fixes Vercel + Railway issues)
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-
-// ✅ Handle preflight (OPTIONS)
+/* =========================================
+   🔥 FORCE CORS (RUNS FIRST - VERY IMPORTANT)
+========================================= */
 app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  // handle preflight
   if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
+    return res.status(200).end();
   }
+
   next();
 });
 
+/* =========================================
+   BODY PARSER
+========================================= */
 app.use(express.json());
 
-/* =========================
-   Request Logger
-========================= */
+/* =========================================
+   REQUEST LOGGER
+========================================= */
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.originalUrl, "origin:", req.headers.origin);
   next();
 });
 
-/* =========================
-   JWT Middleware
-========================= */
+/* =========================================
+   JWT MIDDLEWARE
+========================================= */
 app.use((req, res, next) => {
   let token = req.header("Authorization");
 
@@ -63,27 +63,20 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================
-   Basic Endpoints
-========================= */
+/* =========================================
+   BASIC ROUTES
+========================================= */
 app.get("/", (req, res) => {
-  res.send("Combined Mathematics Backend is running");
+  res.send("✅ Combined Mathematics Backend is running");
 });
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/cors-test", (req, res) => {
-  res.json({
-    ok: true,
-    origin: req.headers.origin || "no-origin",
-  });
-});
-
-/* =========================
-   Routes
-========================= */
+/* =========================================
+   API ROUTES
+========================================= */
 app.use("/student", studentRoute);
 app.use("/addcourse", addCourseRoute);
 app.use("/admin", adminRouter);
@@ -91,9 +84,9 @@ app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 
-/* =========================
-   Error Handler
-========================= */
+/* =========================================
+   ERROR HANDLER
+========================================= */
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
   res.status(err.status || 500).json({
@@ -101,9 +94,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-/* =========================
-   Server + DB
-========================= */
+/* =========================================
+   DB + SERVER START
+========================================= */
 const PORT = process.env.PORT || 8080;
 const connectionString = process.env.MONGODB_URI;
 
