@@ -16,36 +16,36 @@ import addCourseRoute from "./router/addCourse.js";
 
 const app = express();
 
-
+/* =========================
+   ✅ SIMPLE & SAFE CORS (FINAL)
+========================= */
 app.use(cors({
-  origin: (origin, callback) => {
-    // allow requests with no origin (like Postman)
-    if (!origin) return callback(null, true);
-
-    if (
-      origin === "http://localhost:5173" ||
-      origin === "http://localhost:3000" ||
-      origin === "https://combined-mathematics-frontend.vercel.app" ||
-      origin.endsWith(".vercel.app") // allow all Vercel deployments
-    ) {
-      return callback(null, true);//add
-    }
-
-    console.warn("Blocked by CORS:", origin);
-    return callback(null, true); 
-  },
+  origin: "*", // allow all origins (fixes Vercel + Railway issues)
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
+// ✅ Handle preflight (OPTIONS)
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
-
+/* =========================
+   Request Logger
+========================= */
 app.use((req, res, next) => {
   console.log("➡️", req.method, req.originalUrl, "origin:", req.headers.origin);
   next();
 });
 
+/* =========================
+   JWT Middleware
+========================= */
 app.use((req, res, next) => {
   let token = req.header("Authorization");
 
@@ -63,7 +63,9 @@ app.use((req, res, next) => {
   next();
 });
 
-
+/* =========================
+   Basic Endpoints
+========================= */
 app.get("/", (req, res) => {
   res.send("Combined Mathematics Backend is running");
 });
@@ -79,7 +81,9 @@ app.get("/cors-test", (req, res) => {
   });
 });
 
-
+/* =========================
+   Routes
+========================= */
 app.use("/student", studentRoute);
 app.use("/addcourse", addCourseRoute);
 app.use("/admin", adminRouter);
@@ -87,7 +91,9 @@ app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 
-
+/* =========================
+   Error Handler
+========================= */
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
   res.status(err.status || 500).json({
@@ -95,6 +101,9 @@ app.use((err, req, res, next) => {
   });
 });
 
+/* =========================
+   Server + DB
+========================= */
 const PORT = process.env.PORT || 8080;
 const connectionString = process.env.MONGODB_URI;
 
@@ -104,9 +113,9 @@ if (!connectionString) {
 
 mongoose.connect(connectionString)
   .then(() => {
-    console.log("Connected to the database");
+    console.log("✅ Connected to the database");
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })
   .catch((err) => {
-    console.log("DB connection failed:", err.message);
+    console.log("❌ DB connection failed:", err.message);
   });
