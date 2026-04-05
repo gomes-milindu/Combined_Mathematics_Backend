@@ -52,46 +52,38 @@ export async function loginAdmin(req, res) {
   try {
     const { userName, password, role } = req.body;
 
-    // validation
+    console.log("LOGIN BODY:", req.body); // debug
+
     if (!userName || !password || !role) {
       return res.status(400).json({
         success: false,
-        message: "Please provide role, userName and password",
+        message: "Missing fields",
       });
     }
 
-    if (role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid role",
-      });
-    }
-
-    // find user
     const user = await AdminModel.findOne({ userName });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Admin not found",
+        message: "User not found",
       });
     }
 
-    // compare password
     const isPasswordMatching = bcrypt.compareSync(password, user.password);
 
     if (!isPasswordMatching) {
       return res.status(400).json({
         success: false,
-        message: "Password does not match",
+        message: "Wrong password",
       });
     }
 
-    // check JWT secret
     if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET missing!");
       return res.status(500).json({
         success: false,
-        message: "JWT_SECRET is missing in server",
+        message: "Server config error",
       });
     }
 
@@ -110,11 +102,11 @@ export async function loginAdmin(req, res) {
       token,
     });
 
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
+  } catch (err) {
+    console.error("LOGIN ERROR:", err); 
     return res.status(500).json({
       success: false,
-      message: "Server error during login",
+      message: "Server error",
     });
   }
 }
