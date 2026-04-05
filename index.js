@@ -19,25 +19,24 @@ const app = express();
 
 app.use(cors({
   origin: (origin, callback) => {
+    // allow requests with no origin (like Postman)
     if (!origin) return callback(null, true);
 
-    // ✅ allow ALL vercel domains
     if (
-      origin.includes("vercel.app") ||
       origin === "http://localhost:5173" ||
-      origin === "http://localhost:3000"
+      origin === "http://localhost:3000" ||
+      origin === "https://combined-mathematics-frontend.vercel.app" ||
+      origin.endsWith(".vercel.app") // allow all Vercel deployments
     ) {
       return callback(null, true);
     }
 
-    console.log("Blocked origin:", origin);
-    return callback(null, true); // allow anyway (safe for now)
+    console.warn("Blocked by CORS:", origin);
+    return callback(null, true); 
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
-
-app.options("*", cors());
 
 app.options("*", cors());
 
