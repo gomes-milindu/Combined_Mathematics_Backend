@@ -11,6 +11,13 @@ const sendSMS = async (to, message) => {
       to = "0" + to.slice(2);
     }
 
+    console.log("SMS ENV:", {
+      senderID: process.env.QUICKSEND_SENDER_ID,
+      email: process.env.QUICKSEND_EMAIL,
+      apiKey: process.env.QUICKSEND_API_KEY ? "exists" : "missing",
+      to,
+    });
+
     const response = await axios.post(
       "https://quicksend.lk/Client/api.php?FUN=SEND_SINGLE",
       {
