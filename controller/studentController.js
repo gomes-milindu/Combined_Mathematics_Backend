@@ -63,6 +63,7 @@ export async function createStudent(req, res) {
     });
 
     await student.save();
+    console.log("STEP 1: Student saved:", student._id);
 
     const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
       width: 500,
@@ -73,9 +74,10 @@ export async function createStudent(req, res) {
         light: '#FFFFFF'
       }
     });
+    console.log("STEP 2: QR generated");
 
     const fileName = `${studentId}.png`;
-
+    console.log("STEP 3: Uploading file:", fileName);
 
     if (supabase) {
   const { error } = await supabase.storage
@@ -85,17 +87,19 @@ export async function createStudent(req, res) {
       });
 
     if (error) {
-      console.error("SUPABASE ERROR:", error);
+      console.error("STEP 4: SUPABASE ERROR:", error);
       throw new Error(error.message);
     }
 
     const { data } = supabase.storage
       .from("qr-codes")
       .getPublicUrl(fileName);
-
+    console.log("STEP 5: Public URL:", data.publicUrl);
     student.qrCode = data.publicUrl;
 
     await student.save();
+    console.log("STEP 6: QR saved to DB");
+    console.log("STEP 6: Upload success");
   } else {
     console.warn("Supabase not configured, skipping QR upload");
   }
