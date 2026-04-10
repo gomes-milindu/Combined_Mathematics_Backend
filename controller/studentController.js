@@ -77,7 +77,8 @@ export async function createStudent(req, res) {
     const fileName = `${studentId}.png`;
 
 
-    const { error } = await supabase.storage
+    if (supabase) {
+  const { error } = await supabase.storage
       .from("qr-codes")
       .upload(fileName, qrBuffer, {
         contentType: "image/png",
@@ -94,8 +95,10 @@ export async function createStudent(req, res) {
 
     student.qrCode = data.publicUrl;
 
-
     await student.save();
+  } else {
+    console.warn("Supabase not configured, skipping QR upload");
+  }
 
     return res.status(201).json({
       message: "Student saved successfully",
