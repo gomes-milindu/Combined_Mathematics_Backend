@@ -1,7 +1,7 @@
 import Student from "../model/studentModel.js";
 import QRCode from 'qrcode'
 import supabase from "../config/supabase.js";
-import { isAdmin } from "./adminController.js";
+import { isAdmin } from "../controller/adminController.js";
 
 export async function createStudent(req, res) {
 
