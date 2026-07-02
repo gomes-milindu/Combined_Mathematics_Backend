@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import pinoHttp from 'pino-http';
+import logger from './utils/logger.js';
 
 // routes
 import { createAdmin } from './controller/adminController.js';
@@ -13,6 +15,8 @@ import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
 
 const app = express();
+
+app.use(pinoHttp({ logger }));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");

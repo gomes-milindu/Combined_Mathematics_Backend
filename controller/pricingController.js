@@ -3,16 +3,19 @@ import { isAdmin } from "./adminController.js";
 
 
 export async  function createPricing(req, res) {
+    req.log.debug("--> createPricing controller hit");
     if(!isAdmin) {
-        res.status(401).json({message: "Unauthorized access"});
-        return;
+        
+        req.log.warn({ user: req.user }, "Access denied: User is not an admin");
+        return res.status(401).json({message: "Unauthorized access"});
     }
-    console.log("this is pricing controller")
+    
     try{
         const { institute, batch, fullPayment, halfPayment, freePayment } = req.body;
 
         if(!institute || !batch || fullPayment == undefined || halfPayment == undefined || freePayment==undefined) {
-            res.status(400).json({message: "All fields are required"});
+            req.log.warn({ user: req.user }, "Create pricing failed: Missing required fields");
+            return res.status(400).json({message: "All fields are required"});
             return;
         }
 
@@ -26,8 +29,10 @@ export async  function createPricing(req, res) {
 
         const savedPricing = await newPricing.save();
         res.status(201).json({message: "Pricing created successfully", pricing: savedPricing});
+        req.log.info({ pricingId: savedPricing._id }, "Pricing created successfully");
 
     }catch(err) {
+        req.log.error(err, "Unhandled error inside createPricing controller");
         res.status(500).json({message: "Error creating pricing", error: err.message});
     }
 
@@ -37,13 +42,14 @@ export async  function createPricing(req, res) {
 
 
 export async function getPricing(req, res) {
+  req.log.debug("--> getPricing controller hit");
   try {
     const { institute, batch } = req.query;
 
-    console.log("Institute:", institute);
-    console.log("Batch:", batch);
+    req.log.info({ institute, batch }, "Fetching pricing information");
 
     if (!institute || !batch) {
+      req.log.warn({ user: req.user }, "Get pricing failed: Missing required fields");
       return res.status(400).json({ message: "Institute and batch required" });
     }
 
@@ -53,14 +59,16 @@ export async function getPricing(req, res) {
     });
 
     if (!pricing) {
+      req.log.warn({ user: req.user, institute, batch }, "Get pricing failed: Pricing not found");
       return res.status(404).json({ message: "Pricing not found" });
     }
 
     res.json(pricing);
+    req.log.info({ institute, batch, pricing }, "Pricing retrieved successfully");
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    req.log.error(err, "Unhandled error inside getPricing controller");
+    res.status(500).json({ message: "Error fetching pricing", error: err.message });
   }
 }
 

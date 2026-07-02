@@ -21,10 +21,15 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.0",
     "nodemon": "^3.1.11",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",
     "qs": "^6.15.0",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "pino-pretty": "^13.1.3"
+  }
 }
