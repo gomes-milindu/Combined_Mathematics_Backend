@@ -37,23 +37,19 @@ export async function createAdmin(req, res) {
 }
 
 export function isAdmin(req, res) {
-  // if (!req.user || req.user.role !== "admin") {
-  //   res.status(403).json({
-  //     message: "Access denied. Admin only",
-  //   });
-  //   return false;
-  // }
-
-  // return true;
-  if (req.user && req.user.role === "admin") {
-    next();
-  } else {
-    return res.status(403).json({ message: "Access denied. Admin only" });
+  if (!req.user || req.user.role !== "admin") {
+    res.status(403).json({
+      message: "Access denied. Admin only",
+    });
+    return false;
   }
+
+  return true;
 }
 
 export async function loginAdmin(req, res) {
   try {
+    // localStorage.removeItem("token");
     const { userName, password, role } = req.body;
 
     console.log("LOGIN BODY:", req.body); // debug
