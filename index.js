@@ -16,7 +16,19 @@ import addCourseRoute from "./router/addCourse.js";
 
 const app = express();
 
-app.use(pinoHttp({ logger }));
+app.use(
+  pinoHttp({
+    logger,
+    
+    customStartMessage: false, 
+    customSuccessMessage: false,
+    customErrorMessage: false,
+    serializers: {
+      req: () => undefined,
+      res: () => undefined,
+    },
+  })
+);
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");

@@ -13,7 +13,7 @@ export async function createStudent(req, res) {
   }
 
   try {
-    req.log.info({ user: req.user, body: req.body }, "Creating new studenthit try block");
+    req.log.info({ user: req.user, body: req.body }, "Creating new student hit try block");
 
     const {
       studentId,
