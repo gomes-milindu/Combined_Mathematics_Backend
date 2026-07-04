@@ -57,8 +57,10 @@ export async function createPayment(req, res) {
 
     const smsResult = await sendSMS(studentDet.phone, message);
     console.log("SMS result:", smsResult);
+   
     req.log.info({ phone: studentDet.phone, smsResult }, "SMS Result");
     req.log.info({ paymentId: savedPayment._id }, "Payment created successfully");
+    
     return res.status(201).json({
       message: "Payment created successfully",
       payment: savedPayment,
