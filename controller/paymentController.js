@@ -48,12 +48,12 @@ export async function createPayment(req, res) {
    
 
     const message = `Combined Maths Class
-Payment Received
-${studentDet.firstName} ${studentDet.lastName}
-LKR ${savedPayment.amount} ${savedPayment.cardType}
-${savedPayment.month} - ${savedPayment.batch}
-${savedPayment.status}
-Thank you`;
+                      Payment Received
+                      ${studentDet.firstName} ${studentDet.lastName}
+                      LKR ${savedPayment.amount} ${savedPayment.cardType}
+                      ${savedPayment.month} - ${savedPayment.batch}
+                      ${savedPayment.status}
+                      Thank you`;
 
     const smsResult = await sendSMS(studentDet.phone, message);
     console.log("SMS result:", smsResult);

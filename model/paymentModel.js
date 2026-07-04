@@ -26,7 +26,7 @@ const paymentModel = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["PAID", "PENDING"],
+    enum: ["PAID", "PENDING","Failed"],
     default: "PAID",
   },
 
