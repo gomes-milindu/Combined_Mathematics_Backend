@@ -8,32 +8,39 @@ dotenv.config();
 
 export async function createPayment(req, res) {
   req.log.debug("--> createPayment controller hit");
-  if(!isAdmin) {
-      req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-      return res.status(403).json({ message: "Access denied. Admin privileges required." });
-    }
-  try {
-    const {
-      studentId,
-      batch,
-      month,
-      amount,
-      // status,
-      cardType,
-    } = req.body;
+  
+  
+  if (!isAdmin) { 
+    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
+    return res.status(403).json({ message: "Access denied. Admin privileges required." });
+  }
 
+ 
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { studentId, batch, month, amount, cardType } = req.body;
 
     if (!studentId || !batch || !month || amount == undefined || !cardType) {
       req.log.warn({ user: req.user }, "Create payment failed: Missing required fields");
-      return res.status(400).json({
-        message: "All fields are required",
-      });
+      await session.endSession(); // Clean up session
+      return res.status(400).json({ message: "All fields are required" });
     }
 
+    
+    const studentDet = await Student.findOne({ studentId }).session(session);
+    if (!studentDet) {
+      req.log.warn({ studentId }, "Create payment failed: Student not found");
+      await session.abortTransaction();
+      await session.endSession();
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    
     const payment = new Payment({
       studentId,
       batch,
-      // class: className,
       month,
       amount,
       status: "PAID",
@@ -41,32 +48,52 @@ export async function createPayment(req, res) {
       paidDate: new Date(),
     });
 
-    const savedPayment = await payment.save();
     
+    const savedPayment = await payment.save({ session });
 
-    const studentDet = await Student.findOne({ studentId });
-   
-
+    
     const message = `Combined Maths Class
-                      Payment Received
-                      ${studentDet.firstName} ${studentDet.lastName}
-                      LKR ${savedPayment.amount} ${savedPayment.cardType}
-                      ${savedPayment.month} - ${savedPayment.batch}
-                      ${savedPayment.status}
-                      Thank you`;
+                    Payment Received
+                    ${studentDet.firstName} ${studentDet.lastName}
+                    LKR ${savedPayment.amount} ${savedPayment.cardType}
+                    ${savedPayment.month} - ${savedPayment.batch}
+                    ${savedPayment.status}
+                    Thank you`;
 
+    
     const smsResult = await sendSMS(studentDet.phone, message);
     console.log("SMS result:", smsResult);
-   
     req.log.info({ phone: studentDet.phone, smsResult }, "SMS Result");
+
+   
+    if (!smsResult || smsResult.success === false) {
+      throw new Error("SMS_DELIVERY_FAILED");
+    }
+
+    
+    await session.commitTransaction();
+    await session.endSession();
+
     req.log.info({ paymentId: savedPayment._id }, "Payment created successfully");
     
     return res.status(201).json({
-      message: "Payment created successfully",
+      message: "Payment created successfully and notification sent",
       payment: savedPayment,
-      sendSMS: {status: "success"},
+      sendSMS: { status: "success" },
     });
+
   } catch (err) {
+    
+    await session.abortTransaction();
+    await session.endSession();
+
+    if (err.message === "SMS_DELIVERY_FAILED") {
+      req.log.error({ user: req.user }, "Payment aborted: SMS delivery failed");
+      return res.status(502).json({
+        message: "Payment failed because the confirmation SMS could not be sent.",
+      });
+    }
+
     if (err.code === 11000) {
       req.log.warn({ user: req.user }, "Create payment failed: Duplicate payment entry");
       return res.status(409).json({
