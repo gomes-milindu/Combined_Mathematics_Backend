@@ -21,7 +21,8 @@ export async function createAdmin(req, res) {
       return res.status(409).json({ message: "Admin already exists" });
     }
 
-    const hashedPassword = bcrypt.hashSync(password, 10);
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || 10);
+    const hashedPassword = bcrypt.hashSync(password, saltRounds);
     const admin = new AdminModel({
       name,
       userName,
@@ -31,6 +32,12 @@ export async function createAdmin(req, res) {
     
 
     await admin.save();
+
+    // Audit: warn if admin was created without authentication
+    if (!req.user) {
+      req.log.warn({ userName }, "Admin account created without authentication");
+    }
+
     req.log.info({ adminId: admin._id }, "New admin successfully saved to database");
     return res.status(201).json({ message: "Admin Saved Successfully" });
   } catch (error) {
@@ -39,18 +46,7 @@ export async function createAdmin(req, res) {
   }
 }
 
-export function isAdmin(req, res) {
-  req.log.debug("--> isAdmin coontroller hit");
-  if (!req.user || req.user.role !== "admin") {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    res.status(403).json({
-      message: "Access denied. Admin only",
-    });
-    return false;
-  }
 
-  return true;
-}
 
 export async function loginAdmin(req, res) {
   req.log.debug("--> loginAdmin controller hit");
@@ -90,7 +86,6 @@ export async function loginAdmin(req, res) {
 
     if (!process.env.JWT_SECRET) {
       req.log.error("JWT_SECRET missing!");
-      console.error("JWT_SECRET missing!");
       return res.status(500).json({
         success: false,
         message: "Server config error",
@@ -100,10 +95,10 @@ export async function loginAdmin(req, res) {
     const token = jwt.sign(
       {
         id: user._id,
-        role: 'admin',
+        role: user.role || 'admin',
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
     );
 
     req.log.info({ userName }, "Admin login successful");
@@ -125,7 +120,7 @@ export async function loginAdmin(req, res) {
 export async function getAllAdmins(req, res) {
   req.log.debug("--> getAllAdmins controller hit");
   try {
-    const admins = await AdminModel.find();
+    const admins = await AdminModel.find().select("-password");
     req.log.info({ count: admins.length }, "Admins retrieved successfully");
     return res.status(200).json(admins);
   } catch (error) {

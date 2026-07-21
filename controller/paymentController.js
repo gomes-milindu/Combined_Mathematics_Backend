@@ -2,16 +2,11 @@ import Payment from "../model/paymentModel.js";
 import Student from "../model/studentModel.js";
 import sendSMS from "../utils/sendSMS.js";
 import dotenv from "dotenv";
-import { isAdmin } from "./adminController.js";
 
 dotenv.config();
 
 export async function createPayment(req, res) {
   req.log.debug("--> createPayment controller hit");
-  if(!isAdmin) {
-      req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-      return res.status(403).json({ message: "Access denied. Admin privileges required." });
-    }
   try {
     const {
       studentId,
@@ -45,7 +40,15 @@ export async function createPayment(req, res) {
     
 
     const studentDet = await Student.findOne({ studentId });
-   
+
+    if (!studentDet) {
+      req.log.warn({ studentId }, "Payment created but student not found for SMS notification");
+      return res.status(201).json({
+        message: "Payment created successfully",
+        payment: savedPayment,
+        sendSMS: { status: "skipped", reason: "Student not found" },
+      });
+    }
 
     const message = `Combined Maths Class
                       Payment Received
@@ -56,7 +59,6 @@ export async function createPayment(req, res) {
                       Thank you`;
 
     const smsResult = await sendSMS(studentDet.phone, message);
-    console.log("SMS result:", smsResult);
     req.log.info({ phone: studentDet.phone, smsResult }, "SMS Result");
     req.log.info({ paymentId: savedPayment._id }, "Payment created successfully");
     return res.status(201).json({
@@ -82,10 +84,6 @@ export async function createPayment(req, res) {
 
 export async function getPayment(req, res) {
   req.log.debug("--> getPayment controller hit");
-  if(!isAdmin) {
-      req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-      return res.status(403).json({ message: "Access denied. Admin privileges required." });
-    }
   try {
     const { studentId } = req.query;
 

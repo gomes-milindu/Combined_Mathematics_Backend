@@ -1,12 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 import pinoHttp from 'pino-http';
 import logger from './utils/logger.js';
+import { authenticate } from './middleware/authMiddleware.js';
 
 // routes
-import { createAdmin } from './controller/adminController.js';
 import adminRouter from './router/adminRouter.js';
 import paymentRoute from './router/paymentRouter.js';
 import dashboardRoute from './router/dashboardRoute.js';
@@ -50,22 +49,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  let token = req.header("Authorization");
-
-  if (token) {
-    token = token.replace("Bearer ", "");
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
-    } catch (err) {
-      return res.status(401).json({ message: "Invalid token" });
-    }
-  }
-
-  next();
-});
+app.use(authenticate);
 
 
 app.get("/", (req, res) => {
@@ -100,6 +84,14 @@ const connectionString = process.env.MONGODB_URI;
 
 if (!connectionString) {
   throw new Error("Missing env var: MONGODB_URI");
+}
+
+if (!process.env.JWT_SECRET) {
+  throw new Error("Missing env var: JWT_SECRET — required for authentication");
+}
+
+if (process.env.JWT_SECRET.length < 32) {
+  logger.warn("JWT_SECRET is shorter than 32 characters — consider using a stronger secret");
 }
 
 mongoose.connect(connectionString)

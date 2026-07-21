@@ -1,14 +1,8 @@
 import Pricing from "../model/pricingModel.js";
-import { isAdmin } from "./adminController.js";
 
 
 export async  function createPricing(req, res) {
     req.log.debug("--> createPricing controller hit");
-    if(!isAdmin) {
-        
-        req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-        return res.status(401).json({message: "Unauthorized access"});
-    }
     
     try{
         const { institute, batch, fullPayment, halfPayment, freePayment } = req.body;
@@ -16,7 +10,6 @@ export async  function createPricing(req, res) {
         if(!institute || !batch || fullPayment == undefined || halfPayment == undefined || freePayment==undefined) {
             req.log.warn({ user: req.user }, "Create pricing failed: Missing required fields");
             return res.status(400).json({message: "All fields are required"});
-            return;
         }
 
         const newPricing = new Pricing({

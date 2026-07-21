@@ -1,16 +1,11 @@
 import Student from "../model/studentModel.js";
 import QRCode from 'qrcode'
 import supabase from "../config/supabase.js";
-import { isAdmin } from "../controller/adminController.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 export async function createStudent(req, res) {
   req.log.debug("--> createStudent controller hit");
-  if (!isAdmin(req, res)) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({
-      message: "Access denied. Admin privileges required."
-    });
-  }
 
   try {
     req.log.info({ user: req.user, body: req.body }, "Creating new student hit try block");
@@ -52,13 +47,21 @@ export async function createStudent(req, res) {
       });
     }
 
+    // Hash password with bcrypt before saving
+    let hashedPassword = password;
+    if (password) {
+      const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || 10);
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+      req.log.debug({ studentId }, "Student password hashed with bcrypt");
+    }
+
     const student = new Student({
       studentId,
       firstName,
       lastName,
       email,
       phone,
-      password,
+      password: hashedPassword,
       institute,
       batch,
       dateOfBirth,
@@ -79,42 +82,42 @@ export async function createStudent(req, res) {
     });
 
     const fileName = `${studentId}.png`;
-    req.log.info({ studentId, fileName }, ",generating QR code and uploading to Supabase");
+    req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
 
     if (supabase) {
-  const { error } = await supabase.storage
-      .from("qr-codes")
-      .upload(fileName, qrBuffer, {
-        contentType: "image/png",
-      });
+      const { error } = await supabase.storage
+        .from("qr-codes")
+        .upload(fileName, qrBuffer, {
+          contentType: "image/png",
+        });
 
-    if (error) {
-      req.log.error({ error }, "Supabase upload failed");
-      console.error("SUPABASE ERROR:", error);
-      throw new Error(error.message);
+      if (error) {
+        req.log.error({ error }, "Supabase upload failed");
+        throw new Error(error.message);
+      }
+
+      const { data } = supabase.storage
+        .from("qr-codes")
+        .getPublicUrl(fileName);
+
+      student.qrCode = data.publicUrl;
+      await student.save();
+
+      req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
+    } else {
+      req.log.warn("Supabase not configured, skipping QR upload");
     }
 
-    const { data } = supabase.storage
-      .from("qr-codes")
-      .getPublicUrl(fileName);
+    // Strip password from response
+    const studentResponse = student.toObject();
+    delete studentResponse.password;
 
-    student.qrCode = data.publicUrl;
-
-    await student.save();
-    
-  } else {
-    console.warn("Supabase not configured, skipping QR upload");
-    req.log.warn("Supabase not configured, skipping QR upload");
-  }
-
-    req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
     return res.status(201).json({
       message: "Student saved successfully",
-      student,
+      student: studentResponse,
     });
 
   } catch (err) {
-    console.error("STUDENT ERROR:", err);
     req.log.error({ error: err }, "Unhandled error inside createStudent controller");
     if (err.code === 11000) {
       req.log.warn({ user: req.user }, "Create student failed: Duplicate key error");
@@ -143,40 +146,103 @@ export async function createStudent(req, res) {
 
 export async function loginStudent(req, res) {
   req.log.debug("--> loginStudent controller hit");
-  Student.findOne(
-    {
-      email: req.body.email
+
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      req.log.warn({ email }, "Student login failed: missing fields");
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
     }
-  ).then(
-    (user) => {
-      
-      // console.log(user)
-      if (req.body.password == user.password) {
-        
-        req.log.info({ user: user.email }, "Student login successful");
-        res.json(
-          {
-          
-            "message": "login succesfull"
-          }
-        )
+
+    const user = await Student.findOne({ email });
+
+    if (!user) {
+      req.log.warn({ email }, "Student login failed: user not found");
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Gradual password migration: try bcrypt first, then plain-text fallback
+    let isPasswordValid = false;
+
+    try {
+      // Attempt bcrypt comparison (works for hashed passwords)
+      isPasswordValid = await bcrypt.compare(password, user.password);
+    } catch (bcryptErr) {
+      // bcrypt.compare throws if the stored value is not a valid hash
+      // This means it's a legacy plain-text password — handled below
+      req.log.debug({ email }, "bcrypt.compare failed, checking legacy plain-text password");
+    }
+
+    if (!isPasswordValid) {
+      // Fallback: check for legacy plain-text password match
+      if (password === user.password) {
+        isPasswordValid = true;
+
+        // Auto-migrate: hash the plain-text password and update in DB
+        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || 10);
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        await Student.updateOne({ _id: user._id }, { password: hashedPassword });
+        req.log.info({ email }, "Legacy plain-text password auto-migrated to bcrypt");
       }
     }
-  )
+
+    if (!isPasswordValid) {
+      req.log.warn({ email }, "Student login failed: incorrect password");
+      return res.status(400).json({
+        success: false,
+        message: "Wrong password",
+      });
+    }
+
+    // Issue JWT token
+    if (!process.env.JWT_SECRET) {
+      req.log.error("JWT_SECRET missing!");
+      return res.status(500).json({
+        success: false,
+        message: "Server config error",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: 'student',
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
+    );
+
+    req.log.info({ email }, "Student login successful");
+    return res.json({
+      success: true,
+      message: "login succesfull",
+      token,
+    });
+
+  } catch (err) {
+    req.log.error(err, "Unhandled error inside loginStudent controller");
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
 }
 
 export async function getStudent(req, res) {
   req.log.debug("--> getStudent controller hit");
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
   try {
     const total = await Student.countDocuments();
-    const students = await Student.find().sort({ _id: -1 }).skip(skip).limit(limit);
+    const students = await Student.find().select("-password").sort({ _id: -1 }).skip(skip).limit(limit);
     req.log.info({ total, page, limit }, "Students retrieved successfully");
     res.json({
       students,
@@ -195,12 +261,8 @@ export async function getStudent(req, res) {
 
 export async function getOneStudent(req, res) {
   req.log.debug("--> getOneStudent controller hit");
-  if(!isAdmin) {
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   try {
-    const student = await Student.findById(req.params.id);
+    const student = await Student.findById(req.params.id).select("-password");
     res.json(student);
     req.log.info({ studentId: req.params.id }, "Student retrieved successfully");
   } catch (err) {
@@ -214,14 +276,6 @@ export async function getOneStudent(req, res) {
 
 export async function deleteStudent(req, res) {
   req.log.debug("--> deleteStudent controller hit");
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   try {
     const id = req.params.id;
 
@@ -233,9 +287,12 @@ export async function deleteStudent(req, res) {
       });
     }
     req.log.info({ studentId: id }, "Student deleted successfully");
+    // Strip password from response
+    const safeStudent = deletedStudent.toObject();
+    delete safeStudent.password;
     res.json({
       message: "Student deleted successfully",
-      deletedStudent,
+      deletedStudent: safeStudent,
     });
   } catch (err) {
     // console.error(err);
@@ -251,10 +308,6 @@ export async function deleteStudent(req, res) {
 
 export default function scanQr(req, res) {
   req.log.debug("--> scanQr controller hit");
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   const { studentId } = req.body;
 
   // console.log("Student id successfully got it.", studentId);
@@ -269,14 +322,22 @@ export default function scanQr(req, res) {
 
 export async function editStudent(req, res) {
   req.log.debug("--> editStudent controller hit");
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   try {
     const id = req.params.id;
-    const updateData = req.body;
-    const updatedStudent = await Student.findByIdAndUpdate(id, updateData, { new: true });
+
+    // Field allowlist — only permit known safe fields to be updated
+    const allowedFields = [
+      "studentId", "firstName", "lastName", "email", "phone",
+      "institute", "batch", "dateOfBirth", "isActive", "paymentType",
+    ];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    const updatedStudent = await Student.findByIdAndUpdate(id, updateData, { new: true }).select("-password");
 
     if (!updatedStudent) {
       req.log.warn({ studentId: id }, "Edit student failed: Student not found");
@@ -301,12 +362,8 @@ export async function editStudent(req, res) {
 
 export async function getStudentById(req, res) {
   req.log.debug("--> getStudentById controller hit");
-  if(!isAdmin) {
-    req.log.warn({ user: req.user }, "Access denied: User is not an admin");
-    return res.status(403).json({ message: "Access denied. Admin privileges required." });
-  }
   try {
-    const student = await Student.findById(req.params.id);
+    const student = await Student.findById(req.params.id).select("-password");
 
     if (!student) {
       req.log.warn({ studentId: req.params.id }, "Get student failed: Student not found");
@@ -323,7 +380,3 @@ export async function getStudentById(req, res) {
     });
   }
 }
-
-
-
-

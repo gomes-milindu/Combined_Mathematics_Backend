@@ -1,11 +1,8 @@
 import Payment from "../model/paymentModel.js";
 import Student from "../model/studentModel.js";
-import { isAdmin } from "./adminController.js";
 
 export async function getDashboardStats(req, res) {
-  if(!isAdmin) {
-      return res.status(403).json({ message: "Access denied. Admin privileges required." });
-    }
+  req.log.debug("--> getDashboardStats controller hit");
   const monthNames = [
     "January",
     "February",
@@ -124,6 +121,7 @@ const totalByInstituteAndMonth = await Payment.aggregate([
       totalByInstituteAndMonth,
     });
   } catch (err) {
+    req.log.error(err, "Unhandled error inside getDashboardStats controller");
     res.status(500).json({ message: "Error fetching stats" });
   }
 }
