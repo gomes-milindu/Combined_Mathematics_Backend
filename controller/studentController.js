@@ -363,6 +363,12 @@ export async function editStudent(req, res) {
 export async function getStudentById(req, res) {
   req.log.debug("--> getStudentById controller hit");
   try {
+    // Ownership check: students can only view their own profile
+    if (req.user.role !== 'admin' && req.user.id !== req.params.id) {
+      req.log.warn({ requestedId: req.params.id, userId: req.user.id }, "IDOR attempt blocked");
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const student = await Student.findById(req.params.id).select("-password");
 
     if (!student) {
