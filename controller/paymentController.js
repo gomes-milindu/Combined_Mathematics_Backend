@@ -85,7 +85,7 @@ export async function createPayment(req, res) {
 export async function getPayment(req, res) {
   req.log.debug("--> getPayment controller hit");
   try {
-    const { studentId } = req.query;
+    const studentId = typeof req.query.studentId === 'string' ? req.query.studentId : '';
 
     const payment = await Payment.find({ studentId }).sort({ paidDate: -1 }).limit(6);
 
