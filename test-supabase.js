@@ -4,10 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-console.log("URL:", supabaseUrl);
-console.log("Key:", supabaseKey ? "Found (hidden)" : "Missing");
+alert("URL:", supabaseUrl);
+alert("Key:", supabaseKey ? "Found (hidden)" : "Missing");
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

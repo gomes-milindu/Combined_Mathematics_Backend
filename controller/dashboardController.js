@@ -33,7 +33,7 @@ export async function getDashboardStats(req, res) {
         },
       },
     ]);
-
+/*
     const activeCounts = await Student.aggregate([
       { $match: { isActive: true } },
       {
@@ -57,7 +57,33 @@ export async function getDashboardStats(req, res) {
       },
     ]);
 
-    
+*/
+
+const activeCounts = await Student.aggregate([
+      { $match: { isActive: true } },
+      {
+        $group: {
+          _id: {
+            batch: "$batch",
+            institute: "$institute",
+            amount: "$amount",
+          },
+          totalStudents: { $sum: 1 },
+          // CHANGE 1: Convert the string amount to a number before summing
+          totalAmount: { $sum: { $toDouble: "$amount" } }, 
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          batch: "$_id.batch",
+          institute: "$_id.institute",
+          totalStudents: 1,
+          // CHANGE 2: Add totalAmount here so it doesn't get hidden
+          totalAmount: 1, 
+        },
+      },
+    ]);
 
  // Get current month name
 const currentMonthName = new Date().toLocaleString("default", { month: "long" }); // "February"

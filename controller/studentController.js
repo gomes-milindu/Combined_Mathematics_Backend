@@ -84,6 +84,7 @@ export async function createStudent(req, res) {
     const fileName = `${studentId}.png`;
     req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
 
+    console.log("//////////////Supabase client:", supabase ? "Initialized" : "Not initialized");
     if (supabase) {
       const { error } = await supabase.storage
         .from("qr-codes")
