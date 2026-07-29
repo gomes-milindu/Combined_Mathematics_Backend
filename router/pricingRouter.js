@@ -1,5 +1,5 @@
 import express from 'express'
-import { createPricing, getAllPricing, updatePricing,getInstitutes,getBatchesByInstitute } from '../controller/pricingController.js'
+import { createPricing, getAllPricing, updatePricing, deletePricing, getInstitutes,getBatchesByInstitute } from '../controller/pricingController.js'
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js'
 
 const pricingRoute = express.Router()
@@ -10,7 +10,7 @@ pricingRoute.get("/", requireAuth, getAllPricing)
 // Protected — Admin only
 pricingRoute.post("/create", requireAuth, requireAdmin, createPricing)
 pricingRoute.put("/update", requireAuth, requireAdmin, updatePricing)
-//pricingRoute.delete("/delete", requireAuth, requireAdmin, deletePricing)
+pricingRoute.delete("/:id", requireAuth, requireAdmin, deletePricing)
 
 pricingRoute.get("/institutes", requireAuth, getInstitutes)
 pricingRoute.get("/institutes/:institute/batches", requireAuth, getBatchesByInstitute)
