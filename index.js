@@ -12,6 +12,7 @@ import dashboardRoute from './router/dashboardRoute.js';
 import pricingRoute from './router/pricingRouter.js';
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
+import attendanceRoute from "./router/attendanceRouter.js";
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use("/admin", adminRouter);
 app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
+app.use("/attendance", attendanceRoute);
 
 
 app.use((err, req, res, next) => {
