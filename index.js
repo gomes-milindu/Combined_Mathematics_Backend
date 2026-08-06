@@ -81,7 +81,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 8080;
 const connectionString = process.env.MONGODB_URI;
-console.log("MongoDB URI:", connectionString);
 if (!connectionString) {
   throw new Error("Missing env var: MONGODB_URI");
 }
