@@ -65,14 +65,66 @@ export default async function createCourse(req, res) {
 export async function getCourse(req, res) {
   req.log.debug("--> getCourse controller hit");
   try {
-    const course = await Course.find();
-    res.json(course);
-    req.log.info({ count: course.length }, "Courses retrieved successfully");
+    const courses = await Course.find();
+    res.json(courses);
+    req.log.info({ count: courses.length }, "Courses retrieved successfully");
   } catch (err) {
-    console.error(err);
     req.log.error(err, "Unhandled error inside getCourse controller");
     res.status(500).json({
-      message: "Failed to retreive products",
+      message: "Failed to retrieve courses",
     });
+  }
+}
+
+export async function updateCourse(req, res) {
+  req.log.debug("--> updateCourse controller hit");
+  try {
+    const { id } = req.params;
+
+    const allowedFields = [
+      "courseName", "courseCategory", "coursePrice", "courseUrl", "courseDescription",
+    ];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    const updatedCourse = await Course.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedCourse) {
+      req.log.warn({ id }, "Course not found for update");
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    req.log.info({ courseId: updatedCourse.courseId }, "Course updated successfully");
+    res.json({ message: "Course updated successfully", course: updatedCourse });
+  } catch (err) {
+    req.log.error(err, "Unhandled error inside updateCourse controller");
+    res.status(500).json({ message: "Failed to update course", error: err.message });
+  }
+}
+
+export async function deleteCourse(req, res) {
+  req.log.debug("--> deleteCourse controller hit");
+  try {
+    const { id } = req.params;
+
+    const deletedCourse = await Course.findByIdAndDelete(id);
+
+    if (!deletedCourse) {
+      req.log.warn({ id }, "Course not found for delete");
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    req.log.info({ courseId: deletedCourse.courseId }, "Course deleted successfully");
+    res.json({ message: "Course deleted successfully", course: deletedCourse });
+  } catch (err) {
+    req.log.error(err, "Unhandled error inside deleteCourse controller");
+    res.status(500).json({ message: "Failed to delete course", error: err.message });
   }
 }

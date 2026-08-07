@@ -4,35 +4,35 @@ const courseModel = new mongoose .Schema({
 
     courseId:{
         type: String,
-        require: true,
+        required: true,
         unique: true
     },
 
     courseName: {
         type: String,
-        require: true,
+        required: true,
         unique: true
     },
 
     // Applied , Pure
     courseCategory: {
         type: String,
-        require: true,
+        required: true,
     },
 
     courseDescription: {
         type: String,
-        require: true,
+        required: true,
     },
 
     coursePrice: {
         type: String,
-        require: true,
+        required: true,
     },
 
     courseUrl:{
         type: String,
-        require: true,
+        required: true,
         unique: true
     }
 

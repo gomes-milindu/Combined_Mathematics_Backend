@@ -1,31 +1,21 @@
 import Payment from "../model/paymentModel.js";
 import Student from "../model/studentModel.js";
+import Pricing from "../model/pricingModel.js";
 
 export async function getDashboardStats(req, res) {
   req.log.debug("--> getDashboardStats controller hit");
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const thisMonthName = monthNames[new Date().getMonth()];
 
   try {
-    const totalStudents = await Student.countDocuments();
-    const totalPayments = await Payment.countDocuments({ amount: "3800" });
-    
+    const currentMonthName = new Date().toLocaleString("en-US", {
+      month: "long",
+    });
 
+    const totalStudents = await Student.countDocuments();
+    const totalPayments = await Payment.countDocuments({ status: "PAID" });
+
+    // Total Income for system current date month
     const totalIncomeData = await Payment.aggregate([
-      { $match: { month: thisMonthName } },
+      { $match: { month: currentMonthName, status: "PAID" } },
       {
         $group: {
           _id: null,
@@ -33,121 +23,119 @@ export async function getDashboardStats(req, res) {
         },
       },
     ]);
-/*
-    const activeCounts = await Student.aggregate([
-      { $match: { isActive: true } },
-      {
-        $group: {
-          _id: {
-            batch: "$batch",
-            institute: "$institute",
-            amount: "$amount",
-          },
-          totalStudents: { $sum: 1 },
-          totalAmount: { $sum: "$amount" },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          batch: "$_id.batch",
-          institute: "$_id.institute",
-          totalStudents: 1,
-        },
-      },
-    ]);
-
-*/
-
-const activeCounts = await Student.aggregate([
-      { $match: { isActive: true } },
-      {
-        $group: {
-          _id: {
-            batch: "$batch",
-            institute: "$institute",
-            amount: "$amount",
-          },
-          totalStudents: { $sum: 1 },
-          // CHANGE 1: Convert the string amount to a number before summing
-          totalAmount: { $sum: { $toDouble: "$amount" } }, 
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          batch: "$_id.batch",
-          institute: "$_id.institute",
-          totalStudents: 1,
-          // CHANGE 2: Add totalAmount here so it doesn't get hidden
-          totalAmount: 1, 
-        },
-      },
-    ]);
-
- // Get current month name
-const currentMonthName = new Date().toLocaleString("default", { month: "long" }); // "February"
-
-const totalByInstituteAndMonth = await Payment.aggregate([
-  {
-    $match: { 
-      status: "PAID",
-      month: currentMonthName  // filter only this month
-    },
-  },
-  {
-    $lookup: {
-      from: "students",
-      localField: "studentId",
-      foreignField: "studentId",
-      as: "studentInfo",
-    },
-  },
-  { $unwind: "$studentInfo" },
-  { $unwind: "$studentInfo.institute" },
-  {
-    $group: {
-      _id: {
-        institute: "$studentInfo.institute",
-        batch: "$batch",
-        month: "$month",
-      },
-      totalAmount: { $sum: { $toDouble: "$amount" } },
-      paymentCount: { $sum: 1 },
-      uniqueStudents: { $addToSet: "$studentId" },
-    },
-  },
-  {
-    $sort: { "_id.institute": 1 },
-  },
-  {
-    $project: {
-      _id: 0,
-      institute: "$_id.institute",
-      batch: "$_id.batch",
-      month: "$_id.month",
-      totalAmount: 1,
-      paymentCount: 1,
-      studentCount: { $size: "$uniqueStudents" },
-    },
-  },
-]);
-
-// console.log("This Month Total by Institute:", totalByInstituteAndMonth);
 
     const totalIncome = totalIncomeData[0]?.total || 0;
     const netProfit = (totalIncome * 75) / 100;
+
+    // Get all saved pricing plans (Institute & Batch pairs)
+    const savedPricings = await Pricing.find().lean();
+
+    // Active student counts grouped by Institute & Batch
+    const activeStudentAgg = await Student.aggregate([
+      { $match: { isActive: true } },
+      { $unwind: "$institute" },
+      {
+        $group: {
+          _id: {
+            institute: "$institute",
+            batch: "$batch",
+          },
+          totalStudents: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const studentCountMap = {};
+    activeStudentAgg.forEach((item) => {
+      const key = `${item._id.institute}_${item._id.batch}`;
+      studentCountMap[key] = item.totalStudents;
+    });
+
+    // Monthly revenue per Institute & Batch for system current date month
+    const monthlyRevenueAgg = await Payment.aggregate([
+      {
+        $match: {
+          status: "PAID",
+          month: currentMonthName,
+        },
+      },
+      {
+        $lookup: {
+          from: "students",
+          localField: "studentId",
+          foreignField: "studentId",
+          as: "student",
+        },
+      },
+      { $unwind: "$student" },
+      { $unwind: "$student.institute" },
+      {
+        $group: {
+          _id: {
+            institute: "$student.institute",
+            batch: "$batch",
+          },
+          totalRevenue: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+
+    const revenueMap = {};
+    monthlyRevenueAgg.forEach((item) => {
+      const key = `${item._id.institute}_${item._id.batch}`;
+      revenueMap[key] = item.totalRevenue;
+    });
+
+    // Combine saved institutes & batches from Pricing and Active Students
+    const performanceMap = new Map();
+
+    savedPricings.forEach((p) => {
+      const key = `${p.institute}_${p.batch}`;
+      performanceMap.set(key, {
+        institute: p.institute,
+        batch: p.batch,
+        totalStudents: studentCountMap[key] || 0,
+        revenue: revenueMap[key] || 0,
+        month: currentMonthName,
+      });
+    });
+
+    // Also include any active student institute/batch pairs if not already in Pricing
+    activeStudentAgg.forEach((item) => {
+      const key = `${item._id.institute}_${item._id.batch}`;
+      if (!performanceMap.has(key)) {
+        performanceMap.set(key, {
+          institute: item._id.institute,
+          batch: item._id.batch,
+          totalStudents: item.totalStudents,
+          revenue: revenueMap[key] || 0,
+          month: currentMonthName,
+        });
+      }
+    });
+
+    const institutePerformance = Array.from(performanceMap.values());
 
     res.json({
       totalStudents,
       totalPayments,
       totalIncome,
       netProfit,
-      activeCounts,
-      totalByInstituteAndMonth,
+      currentMonth: currentMonthName,
+      institutePerformance,
+      // Backward compatibility fields
+      activeCounts: institutePerformance.map((item) => ({
+        ...item,
+        totalAmount: item.revenue,
+      })),
+      totalByInstituteAndMonth: institutePerformance.map((item) => ({
+        ...item,
+        totalAmount: item.revenue,
+      })),
     });
   } catch (err) {
     req.log.error(err, "Unhandled error inside getDashboardStats controller");
-    res.status(500).json({ message: "Error fetching stats" });
+    res.status(500).json({ message: "Error fetching stats", error: err.message });
   }
 }
+

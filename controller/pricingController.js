@@ -40,13 +40,6 @@ export async function getAllPricing(req, res) {
   try {
     const pricingList = await Pricing.find();
 
-    if (!pricingList || pricingList.length === 0) {
-      req.log.warn("No pricing records found");
-      return res.status(404).json({
-        message: "No pricing records found"
-      });
-    }
-
     req.log.info(
       { count: pricingList.length },
       "All pricing records retrieved successfully"
@@ -219,7 +212,7 @@ export async function getBatchesByInstitute(req, res) {
 
   } catch (error) {
     // 4. Server-side logging for debugging
-    console.error(`[Error] getBatchesByInstitute - Institute: ${req.params.institute} - ${error.message}`);
+    req.log.error(error, `getBatchesByInstitute failed for institute: ${req.params.institute}`);
     
     return res.status(500).json({
       message: "An internal server error occurred while fetching batches.",
