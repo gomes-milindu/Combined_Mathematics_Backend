@@ -71,40 +71,45 @@ export async function createStudent(req, res) {
 
     await student.save();
 
-    const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
-      width: 500,
-      margin: 2,
-      errorCorrectionLevel: 'H',
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-
-    const fileName = `${studentId}.png`;
-    req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
-
-    console.log("//////////////Supabase client:", supabase ? "Initialized" : "Not initialized");
     if (supabase) {
-      const { error } = await supabase.storage
-        .from("qr-codes")
-        .upload(fileName, qrBuffer, {
-          contentType: "image/png",
+      try {
+        const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
+          width: 500,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
         });
 
-      if (error) {
-        req.log.error({ error }, "Supabase upload failed");
-        throw new Error(error.message);
+        const fileName = `${studentId}.png`;
+        req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
+
+        const { error } = await supabase.storage
+          .from("qr-codes")
+          .upload(fileName, qrBuffer, {
+            contentType: "image/png",
+            upsert: true,
+          });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const { data } = supabase.storage
+          .from("qr-codes")
+          .getPublicUrl(fileName);
+
+        student.qrCode = data.publicUrl;
+        await student.save();
+
+        req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
+      } catch (qrErr) {
+        // Student is already saved — a QR failure shouldn't fail the whole request.
+        // It can be generated later via the regenerate-QR endpoint.
+        req.log.error({ error: qrErr, studentId }, "QR generation/upload failed, continuing without QR");
       }
-
-      const { data } = supabase.storage
-        .from("qr-codes")
-        .getPublicUrl(fileName);
-
-      student.qrCode = data.publicUrl;
-      await student.save();
-
-      req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
     } else {
       req.log.warn("Supabase not configured, skipping QR upload");
     }
