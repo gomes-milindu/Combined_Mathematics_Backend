@@ -71,40 +71,45 @@ export async function createStudent(req, res) {
 
     await student.save();
 
-    const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
-      width: 500,
-      margin: 2,
-      errorCorrectionLevel: 'H',
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-
-    const fileName = `${studentId}.png`;
-    req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
-
-    console.log("//////////////Supabase client:", supabase ? "Initialized" : "Not initialized");
     if (supabase) {
-      const { error } = await supabase.storage
-        .from("qr-codes")
-        .upload(fileName, qrBuffer, {
-          contentType: "image/png",
+      try {
+        const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
+          width: 500,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
         });
 
-      if (error) {
-        req.log.error({ error }, "Supabase upload failed");
-        throw new Error(error.message);
+        const fileName = `${studentId}.png`;
+        req.log.info({ studentId, fileName }, "Generating QR code and uploading to Supabase");
+
+        const { error } = await supabase.storage
+          .from("qr-codes")
+          .upload(fileName, qrBuffer, {
+            contentType: "image/png",
+            upsert: true,
+          });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        const { data } = supabase.storage
+          .from("qr-codes")
+          .getPublicUrl(fileName);
+
+        student.qrCode = data.publicUrl;
+        await student.save();
+
+        req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
+      } catch (qrErr) {
+        // Student is already saved — a QR failure shouldn't fail the whole request.
+        // It can be generated later via the regenerate-QR endpoint.
+        req.log.error({ error: qrErr, studentId }, "QR generation/upload failed, continuing without QR");
       }
-
-      const { data } = supabase.storage
-        .from("qr-codes")
-        .getPublicUrl(fileName);
-
-      student.qrCode = data.publicUrl;
-      await student.save();
-
-      req.log.info({ studentId, qrCodeUrl: data.publicUrl }, "QR code uploaded and student record updated");
     } else {
       req.log.warn("Supabase not configured, skipping QR upload");
     }
@@ -144,6 +149,64 @@ export async function createStudent(req, res) {
   }
 }
 
+
+export async function regenerateQr(req, res) {
+  req.log.debug("--> regenerateQr controller hit");
+
+  try {
+    const student = await Student.findById(req.params.id);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (!supabase) {
+      req.log.warn("Supabase not configured, cannot generate QR");
+      return res.status(503).json({ message: "Supabase not configured" });
+    }
+
+    const qrBuffer = await QRCode.toBuffer(student._id.toString(), {
+      width: 500,
+      margin: 2,
+      errorCorrectionLevel: 'H',
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+
+    const fileName = `${student.studentId}.png`;
+
+    const { error } = await supabase.storage
+      .from("qr-codes")
+      .upload(fileName, qrBuffer, {
+        contentType: "image/png",
+        upsert: true,
+      });
+
+    if (error) {
+      req.log.error({ error }, "Supabase upload failed");
+      return res.status(500).json({ message: "QR upload failed", error: error.message });
+    }
+
+    const { data } = supabase.storage
+      .from("qr-codes")
+      .getPublicUrl(fileName);
+
+    student.qrCode = data.publicUrl;
+    await student.save();
+
+    req.log.info({ studentId: student.studentId, qrCodeUrl: data.publicUrl }, "QR code regenerated");
+
+    return res.status(200).json({
+      message: "QR code regenerated",
+      qrCode: student.qrCode,
+    });
+  } catch (err) {
+    req.log.error({ error: err }, "Unhandled error inside regenerateQr controller");
+    return res.status(500).json({ message: "Failed to regenerate QR", error: err.message });
+  }
+}
 
 export async function loginStudent(req, res) {
   req.log.debug("--> loginStudent controller hit");
