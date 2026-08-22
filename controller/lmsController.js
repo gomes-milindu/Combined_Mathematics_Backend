@@ -130,10 +130,13 @@ export async function getVideosForCategory(req, res) {
         }
 
         // 5. Fetch active videos for this institute + batch
+        // Supports both new targets array and legacy single institute/batch fields
         const videos = await Video.find({
-            institute: institute,
-            batch: batch,
             isActive: true,
+            $or: [
+                { targets: { $elemMatch: { institute: institute, batch: batch } } },
+                { institute: institute, batch: batch },
+            ],
         }).sort({ createdAt: -1 });
 
         req.log.info(

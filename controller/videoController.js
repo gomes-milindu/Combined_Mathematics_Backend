@@ -1,29 +1,43 @@
 import Video from "../model/videoModel.js";
 
 /**
- * Admin — Create a new video (YouTube metadata)
+ * Admin — Create a new video (YouTube metadata) with multi-target support
  */
 export async function createVideo(req, res) {
     req.log.debug("--> createVideo controller hit");
     try {
-        const { title, videoUrl, institute, batch, description } = req.body;
+        const { title, videoUrl, institute, batch, description, targets } = req.body;
 
-        if (!title || !videoUrl || !institute || !batch) {
+        if (!title || !videoUrl) {
             req.log.warn({ body: req.body }, "Create video failed: missing required fields");
-            return res.status(400).json({ message: "Title, video URL, institute, and batch are required" });
+            return res.status(400).json({ message: "Title and video URL are required" });
+        }
+
+        // Support both legacy single-target and new multi-target format
+        let videoTargets = [];
+        if (Array.isArray(targets) && targets.length > 0) {
+            videoTargets = targets;
+        } else if (institute && batch) {
+            videoTargets = [{ institute, batch }];
+        }
+
+        if (videoTargets.length === 0) {
+            return res.status(400).json({ message: "At least one institute + batch target is required" });
         }
 
         const video = new Video({
             title,
             description: description || "",
             videoUrl,
-            institute,
-            batch,
+            // Keep legacy fields populated with first target for backward compat
+            institute: videoTargets[0].institute,
+            batch: videoTargets[0].batch,
+            targets: videoTargets,
             createdBy: req.user?.id || null,
         });
 
         const saved = await video.save();
-        req.log.info({ videoId: saved._id }, "Video created successfully");
+        req.log.info({ videoId: saved._id, targetCount: videoTargets.length }, "Video created successfully");
         return res.status(201).json({ message: "Video created successfully", video: saved });
     } catch (err) {
         req.log.error(err, "Unhandled error inside createVideo controller");
@@ -54,7 +68,7 @@ export async function updateVideo(req, res) {
     try {
         const { id } = req.params;
 
-        const allowedFields = ["title", "description", "videoUrl", "institute", "batch", "isActive"];
+        const allowedFields = ["title", "description", "videoUrl", "institute", "batch", "isActive", "targets"];
         const updateData = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
