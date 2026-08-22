@@ -7,11 +7,15 @@ const paymentModel = new mongoose.Schema({
     required: true,
   },
 
+  institute: {
+    type: String,
+    default: "",
+  },
+
   batch: {
     type: String,
     required: true,
   },
-
 
   month: {
     type: String, // e.g. "2026-02"
@@ -26,13 +30,13 @@ const paymentModel = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["PAID", "PENDING","Failed"],
+    enum: ["PAID", "PENDING", "Failed"],
     default: "PAID",
   },
 
-  cardType:{
+  cardType: {
     type: String,
-    default:"Full Payment"
+    default: "Full Payment"
   },
 
   paidDate: {

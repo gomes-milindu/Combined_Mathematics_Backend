@@ -13,14 +13,16 @@ import pricingRoute from './router/pricingRouter.js';
 import studentRoute from "./router/studentRouter.js";
 import addCourseRoute from "./router/addCourse.js";
 import attendanceRoute from "./router/attendanceRouter.js";
+import lmsRoute from "./router/lmsRouter.js";
+import videoRoute from "./router/videoRouter.js";
 
 const app = express();
 
 app.use(
   pinoHttp({
     logger,
-    
-    customStartMessage: false, 
+
+    customStartMessage: false,
     customSuccessMessage: false,
     customErrorMessage: false,
     serializers: {
@@ -71,6 +73,8 @@ app.use("/payment", paymentRoute);
 app.use("/pricing", pricingRoute);
 app.use("/dashboard", dashboardRoute);
 app.use("/attendance", attendanceRoute);
+app.use("/lms", lmsRoute);
+app.use("/videos", videoRoute);
 
 
 app.use((err, req, res, next) => {

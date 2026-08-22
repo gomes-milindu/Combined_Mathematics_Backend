@@ -10,6 +10,7 @@ export async function createPayment(req, res) {
   try {
     const {
       studentId,
+      institute,
       batch,
       month,
       amount,
@@ -27,6 +28,7 @@ export async function createPayment(req, res) {
 
     const payment = new Payment({
       studentId,
+      institute: institute || "",
       batch,
       // class: className,
       month,
@@ -37,7 +39,7 @@ export async function createPayment(req, res) {
     });
 
     const savedPayment = await payment.save();
-    
+
 
     const studentDet = await Student.findOne({ studentId });
 
@@ -64,7 +66,7 @@ export async function createPayment(req, res) {
     return res.status(201).json({
       message: "Payment created successfully",
       payment: savedPayment,
-      sendSMS: {status: "success"},
+      sendSMS: { status: "success" },
     });
   } catch (err) {
     if (err.code === 11000) {
