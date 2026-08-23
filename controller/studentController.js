@@ -485,3 +485,141 @@ export async function getStudentById(req, res) {
     });
   }
 }
+
+/**
+ * GET /student/unpaid
+ * Returns students who have at least one unpaid enrollment for a given month.
+ * Query params: month (YYYY-MM, defaults to current), institute, batch
+ */
+export async function getUnpaidStudents(req, res) {
+  req.log.debug("--> getUnpaidStudents controller hit");
+
+  try {
+    // Default month to current YYYY-MM
+    let month = req.query.month;
+    if (!month) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      month = `${y}-${m}`;
+    }
+
+    const pipeline = [
+      // 1. Active students only
+      { $match: { isActive: true } },
+
+      // 2. Normalize enrollments vs legacy fields
+      {
+        $addFields: {
+          normalizedEnrollments: {
+            $cond: {
+              if: { $gt: [{ $size: { $ifNull: ["$enrollments", []] } }, 0] },
+              then: "$enrollments",
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: { $ifNull: ["$institute", []] } }, 0] },
+                  then: {
+                    $map: {
+                      input: "$institute",
+                      as: "inst",
+                      in: { institute: "$$inst", batch: { $ifNull: ["$batch", ""] } }
+                    }
+                  },
+                  else: [{ institute: "", batch: { $ifNull: ["$batch", ""] } }]
+                }
+              }
+            }
+          }
+        }
+      },
+      { $unwind: "$normalizedEnrollments" },
+
+      // 3. Lookup paid payments for this exact enrollment + month
+      {
+        $lookup: {
+          from: "payments",
+          let: {
+            sId: "$studentId",
+            inst: "$normalizedEnrollments.institute",
+            bat: "$normalizedEnrollments.batch"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$studentId", "$$sId"] },
+                    { $eq: ["$institute", "$$inst"] },
+                    { $eq: ["$batch", "$$bat"] },
+                    { $eq: ["$month", month] },
+                    { $eq: ["$status", "PAID"] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "paidPayments"
+        }
+      },
+
+      // 4. Keep only unpaid (no matching payment)
+      {
+        $match: {
+          $expr: { $eq: [{ $size: "$paidPayments" }, 0] }
+        }
+      },
+
+      // 5. Group back to unique students
+      {
+        $group: {
+          _id: "$_id",
+          studentId: { $first: "$studentId" },
+          firstName: { $first: "$firstName" },
+          lastName: { $first: "$lastName" },
+          phone: { $first: "$phone" },
+          email: { $first: "$email" },
+          unpaidEnrollments: {
+            $push: {
+              institute: "$normalizedEnrollments.institute",
+              batch: "$normalizedEnrollments.batch"
+            }
+          }
+        }
+      },
+      { $sort: { studentId: 1 } }
+    ];
+
+    let students = await Student.aggregate(pipeline);
+
+    // Apply institute/batch filters on the unpaid enrollments
+    const filterInstitute = req.query.institute;
+    const filterBatch = req.query.batch;
+
+    if (filterInstitute || filterBatch) {
+      students = students
+        .map((s) => {
+          const filtered = s.unpaidEnrollments.filter((e) => {
+            if (filterInstitute && e.institute !== filterInstitute) return false;
+            if (filterBatch && e.batch !== filterBatch) return false;
+            return true;
+          });
+          return { ...s, unpaidEnrollments: filtered };
+        })
+        .filter((s) => s.unpaidEnrollments.length > 0);
+    }
+
+    req.log.info({ month, count: students.length }, "Unpaid students retrieved");
+    res.json({
+      count: students.length,
+      month,
+      students,
+    });
+  } catch (err) {
+    req.log.error(err, "Unhandled error inside getUnpaidStudents controller");
+    res.status(500).json({
+      message: "Error fetching unpaid students",
+      error: err.message,
+    });
+  }
+}
+
