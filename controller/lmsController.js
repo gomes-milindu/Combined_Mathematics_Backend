@@ -3,6 +3,36 @@ import Payment from "../model/paymentModel.js";
 import Video from "../model/videoModel.js";
 
 /**
+ * Normalize a student's enrollment data into a consistent array of
+ * { institute, batch } objects.
+ *
+ * Priority:
+ * 1. If student.enrollments exists and is a non-empty array, use it directly.
+ * 2. Otherwise, derive from legacy flat fields (institute[] + batch string).
+ *    Each legacy institute is paired with the single batch value.
+ */
+function normalizeEnrollments(student) {
+    if (Array.isArray(student.enrollments) && student.enrollments.length > 0) {
+        return student.enrollments.map((e) => ({
+            institute: e.institute,
+            batch: e.batch,
+        }));
+    }
+
+    // Legacy fallback
+    const institutes = Array.isArray(student.institute)
+        ? student.institute
+        : [student.institute].filter(Boolean);
+    const batch = student.batch || "";
+
+    if (institutes.length === 0) {
+        return [];
+    }
+
+    return institutes.map((inst) => ({ institute: inst, batch }));
+}
+
+/**
  * Get the authenticated student's registrations with payment status.
  *
  * Returns each institute + batch combination the student is registered for,
@@ -21,25 +51,24 @@ export async function getStudentRegistrations(req, res) {
 
         const currentMonth = new Date().toISOString().slice(0, 7); // "2026-08"
 
-        // Build institute+batch combinations from the student's actual data
-        const institutes = Array.isArray(student.institute) ? student.institute : [student.institute];
-        const batch = student.batch;
+        // Use normalized enrollments (supports both new and legacy data)
+        const enrollments = normalizeEnrollments(student);
 
         const registrations = [];
 
-        for (const inst of institutes) {
+        for (const enrollment of enrollments) {
             // Check if a PAID payment exists for this institute + batch + current month
             const payment = await Payment.findOne({
                 studentId: student.studentId,
-                institute: inst,
-                batch: batch,
+                institute: enrollment.institute,
+                batch: enrollment.batch,
                 month: currentMonth,
                 status: "PAID",
             });
 
             registrations.push({
-                institute: inst,
-                batch: batch,
+                institute: enrollment.institute,
+                batch: enrollment.batch,
                 isPaid: !!payment,
                 month: currentMonth,
             });
@@ -67,10 +96,9 @@ export async function getStudentRegistrations(req, res) {
  *
  * Authorization checks:
  * 1. Student is authenticated (JWT verified by middleware)
- * 2. Student is registered for the requested institute
- * 3. Student's batch matches the requested batch
- * 4. Student has a PAID payment for this institute+batch+current month
- * 5. Only active videos for that institute+batch are returned
+ * 2. Student is registered for the EXACT requested institute+batch pair
+ * 3. Student has a PAID payment for this institute+batch+current month
+ * 4. Only active videos for that institute+batch are returned
  */
 export async function getVideosForCategory(req, res) {
     req.log.debug("--> getVideosForCategory controller hit");
@@ -89,26 +117,21 @@ export async function getVideosForCategory(req, res) {
             return res.status(404).json({ message: "Student not found" });
         }
 
-        // 2. Verify student is registered for the requested institute
-        const institutes = Array.isArray(student.institute) ? student.institute : [student.institute];
-        if (!institutes.includes(institute)) {
+        // 2. Verify student is registered for the EXACT institute+batch pair
+        const enrollments = normalizeEnrollments(student);
+        const isEnrolled = enrollments.some(
+            (e) => e.institute === institute && e.batch === batch
+        );
+
+        if (!isEnrolled) {
             req.log.warn(
-                { studentId: student.studentId, requestedInstitute: institute },
-                "LMS: Student not registered for requested institute"
+                { studentId: student.studentId, requestedInstitute: institute, requestedBatch: batch },
+                "LMS: Student not enrolled for requested institute+batch pair"
             );
-            return res.status(403).json({ message: "Access denied. Not registered for this institute." });
+            return res.status(403).json({ message: "Access denied. Not registered for this institute and batch." });
         }
 
-        // 3. Verify student's batch matches
-        if (student.batch !== batch) {
-            req.log.warn(
-                { studentId: student.studentId, requestedBatch: batch, actualBatch: student.batch },
-                "LMS: Batch mismatch"
-            );
-            return res.status(403).json({ message: "Access denied. Batch mismatch." });
-        }
-
-        // 4. Verify PAID payment for this institute + batch + current month
+        // 3. Verify PAID payment for this institute + batch + current month
         const currentMonth = new Date().toISOString().slice(0, 7);
         const payment = await Payment.findOne({
             studentId: student.studentId,
@@ -129,7 +152,7 @@ export async function getVideosForCategory(req, res) {
             });
         }
 
-        // 5. Fetch active videos for this institute + batch
+        // 4. Fetch active videos for this institute + batch
         // Supports both new targets array and legacy single institute/batch fields
         const videos = await Video.find({
             isActive: true,
@@ -150,3 +173,4 @@ export async function getVideosForCategory(req, res) {
         return res.status(500).json({ message: "Error fetching videos", error: err.message });
     }
 }
+
