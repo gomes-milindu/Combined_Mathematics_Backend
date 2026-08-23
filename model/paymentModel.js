@@ -45,7 +45,15 @@ const paymentModel = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// 🔥 IMPORTANT
+// 🔥 IMPORTANT — CURRENT INDEX (LEGACY)
+// This index does NOT include institute, which blocks multi-institute payments
+// with the same batch name in the same month.
+//
+// FUTURE MIGRATION REQUIRED (Phase 2):
+//   1. db.payments.dropIndex('studentId_1_batch_1_month_1')
+//   2. db.payments.createIndex({ studentId: 1, institute: 1, batch: 1, month: 1 }, { unique: true })
+//
+// DO NOT change the line below until the manual migration is executed.
 paymentModel.index(
   { studentId: 1, batch: 1, month: 1 },
   { unique: true }

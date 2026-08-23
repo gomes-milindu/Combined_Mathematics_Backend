@@ -19,6 +19,7 @@ export async function createStudent(req, res) {
       password,
       institute,
       batch,
+      enrollments: rawEnrollments,
       dateOfBirth,
       paymentType = "Full Payment",
       isActive = true,
@@ -35,6 +36,30 @@ export async function createStudent(req, res) {
       req.log.warn({ paymentType }, "Student creation blocked: Invalid Payment Type");
       return res.status(400).json({
         message: "Invalid Payment Type. Must be Full Payment or Half Payment",
+      });
+    }
+
+    // Build enrollments: accept new format or auto-convert legacy format
+    let enrollments;
+    if (Array.isArray(rawEnrollments) && rawEnrollments.length > 0) {
+      // NEW format: enrollments: [{ institute, batch }, ...]
+      for (const enr of rawEnrollments) {
+        if (!enr.institute || !enr.batch) {
+          req.log.warn({ enrollments: rawEnrollments }, "Invalid enrollment entry");
+          return res.status(400).json({
+            message: "Each enrollment must have both institute and batch",
+          });
+        }
+      }
+      enrollments = rawEnrollments.map(e => ({ institute: e.institute, batch: e.batch }));
+    } else if (institute && batch) {
+      // LEGACY format: institute (string or array) + batch (string)
+      const instArray = Array.isArray(institute) ? institute : [institute];
+      enrollments = instArray.map(inst => ({ institute: inst, batch }));
+    } else {
+      req.log.warn({ body: req.body }, "Student creation blocked: No enrollment data provided");
+      return res.status(400).json({
+        message: "At least one enrollment (institute + batch) is required",
       });
     }
 
@@ -62,6 +87,7 @@ export async function createStudent(req, res) {
       req.log.debug({ studentId }, "Student password hashed with bcrypt");
     }
 
+    // Populate both new and legacy fields for backward compatibility
     const student = new Student({
       studentId,
       firstName,
@@ -69,8 +95,10 @@ export async function createStudent(req, res) {
       email,
       phone,
       password: hashedPassword,
-      institute,
-      batch,
+      enrollments,
+      // Legacy fields: populated from the first enrollment for backward compat
+      institute: enrollments.map(e => e.institute),
+      batch: enrollments[0].batch,
       dateOfBirth,
       paymentType,
       isActive,
@@ -399,7 +427,7 @@ export async function editStudent(req, res) {
     // Field allowlist — only permit known safe fields to be updated
     const allowedFields = [
       "studentId", "firstName", "lastName", "email", "phone",
-      "institute", "batch", "dateOfBirth", "isActive", "paymentType",
+      "institute", "batch", "enrollments", "dateOfBirth", "isActive", "paymentType",
     ];
     const updateData = {};
     for (const field of allowedFields) {

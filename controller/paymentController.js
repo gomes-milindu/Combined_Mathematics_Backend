@@ -19,10 +19,27 @@ export async function createPayment(req, res) {
     } = req.body;
 
 
-    if (!studentId || !batch || !month || amount == undefined || !cardType) {
+    if (!studentId || !institute || !batch || !month || amount == undefined || !cardType) {
       req.log.warn({ user: req.user }, "Create payment failed: Missing required fields");
       return res.status(400).json({
-        message: "All fields are required",
+        message: "All fields are required (including institute)",
+      });
+    }
+
+    // Application-level duplicate check using the CORRECT uniqueness key:
+    // studentId + institute + batch + month
+    // This is necessary because the current MongoDB index only uses
+    // studentId + batch + month (institute is missing from the index).
+    const existingPayment = await Payment.findOne({
+      studentId,
+      institute,
+      batch,
+      month,
+    });
+    if (existingPayment) {
+      req.log.warn({ studentId, institute, batch, month }, "Create payment blocked: Duplicate payment for this institute+batch+month");
+      return res.status(409).json({
+        message: "Payment already exists for this student, institute, batch, and month",
       });
     }
 
@@ -70,9 +87,9 @@ export async function createPayment(req, res) {
     });
   } catch (err) {
     if (err.code === 11000) {
-      req.log.warn({ user: req.user }, "Create payment failed: Duplicate payment entry");
+      req.log.warn({ user: req.user }, "Create payment failed: Duplicate payment entry (DB index)");
       return res.status(409).json({
-        message: "Payment already exists for this student, batch, and month",
+        message: "Payment already exists for this student, institute, batch, and month",
       });
     }
 
