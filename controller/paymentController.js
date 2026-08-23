@@ -26,10 +26,36 @@ export async function createPayment(req, res) {
       });
     }
 
-    // Application-level duplicate check using the CORRECT uniqueness key:
-    // studentId + institute + batch + month
-    // This is necessary because the current MongoDB index only uses
-    // studentId + batch + month (institute is missing from the index).
+    // Verify the student exists and the institute+batch is in their enrollments
+    const studentDet = await Student.findOne({ studentId });
+    if (!studentDet) {
+      req.log.warn({ studentId }, "Create payment failed: Student not found");
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Check enrollments (new format) or legacy fields
+    let isEnrolled = false;
+    if (Array.isArray(studentDet.enrollments) && studentDet.enrollments.length > 0) {
+      isEnrolled = studentDet.enrollments.some(
+        (e) => e.institute === institute && e.batch === batch
+      );
+    } else {
+      // Legacy fallback: check institute array + batch string
+      const legacyInstitutes = Array.isArray(studentDet.institute)
+        ? studentDet.institute
+        : studentDet.institute ? [studentDet.institute] : [];
+      const legacyBatch = studentDet.batch || "";
+      isEnrolled = legacyInstitutes.includes(institute) && legacyBatch === batch;
+    }
+
+    if (!isEnrolled) {
+      req.log.warn({ studentId, institute, batch }, "Create payment blocked: Student not enrolled in this institute+batch");
+      return res.status(400).json({
+        message: `Student is not enrolled in ${institute} / ${batch}`,
+      });
+    }
+
+    // Duplicate check: studentId + institute + batch + month
     const existingPayment = await Payment.findOne({
       studentId,
       institute,
@@ -37,7 +63,7 @@ export async function createPayment(req, res) {
       month,
     });
     if (existingPayment) {
-      req.log.warn({ studentId, institute, batch, month }, "Create payment blocked: Duplicate payment for this institute+batch+month");
+      req.log.warn({ studentId, institute, batch, month }, "Create payment blocked: Duplicate payment");
       return res.status(409).json({
         message: "Payment already exists for this student, institute, batch, and month",
       });
@@ -45,9 +71,8 @@ export async function createPayment(req, res) {
 
     const payment = new Payment({
       studentId,
-      institute: institute || "",
+      institute,
       batch,
-      // class: className,
       month,
       amount,
       status: "PAID",
@@ -57,23 +82,12 @@ export async function createPayment(req, res) {
 
     const savedPayment = await payment.save();
 
-
-    const studentDet = await Student.findOne({ studentId });
-
-    if (!studentDet) {
-      req.log.warn({ studentId }, "Payment created but student not found for SMS notification");
-      return res.status(201).json({
-        message: "Payment created successfully",
-        payment: savedPayment,
-        sendSMS: { status: "skipped", reason: "Student not found" },
-      });
-    }
-
     const message = `Combined Maths Class
                       Payment Received
                       ${studentDet.firstName} ${studentDet.lastName}
                       LKR ${savedPayment.amount} ${savedPayment.cardType}
-                      ${savedPayment.month} - ${savedPayment.batch}
+                      ${savedPayment.institute} - ${savedPayment.batch}
+                      ${savedPayment.month}
                       ${savedPayment.status}
                       Thank you`;
 
@@ -106,7 +120,7 @@ export async function getPayment(req, res) {
   try {
     const studentId = typeof req.query.studentId === 'string' ? req.query.studentId : '';
 
-    const payment = await Payment.find({ studentId }).sort({ paidDate: -1 }).limit(6);
+    const payment = await Payment.find({ studentId }).sort({ paidDate: -1 });
 
     if (!payment) {
       req.log.warn({ user: req.user, studentId }, "Get payment failed: Student not found");
@@ -123,3 +137,4 @@ export async function getPayment(req, res) {
     });
   }
 }
+
