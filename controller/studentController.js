@@ -31,6 +31,13 @@ export async function createStudent(req, res) {
       });
     }
 
+    if (paymentType !== "Full Payment" && paymentType !== "Half Payment") {
+      req.log.warn({ paymentType }, "Student creation blocked: Invalid Payment Type");
+      return res.status(400).json({
+        message: "Invalid Payment Type. Must be Full Payment or Half Payment",
+      });
+    }
+
     const existingEmail = await Student.findOne({ email });
     if (existingEmail) {
       req.log.warn({ email }, "Student creation blocked: Email already exists");
@@ -375,7 +382,7 @@ export default function scanQr(req, res) {
   const { studentId } = req.body;
 
   // console.log("Student id successfully got it.", studentId);
-   req.log.info({ studentId }, "Student ID received from QR scan");
+  req.log.info({ studentId }, "Student ID received from QR scan");
   return res.json({
     success: true,
     message: "Student ID received",
