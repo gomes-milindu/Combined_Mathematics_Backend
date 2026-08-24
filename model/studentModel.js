@@ -39,6 +39,7 @@ const studentModel = new mongoose.Schema({
     enrollments: [{
         institute: { type: String, required: true },
         batch: { type: String, required: true },
+        paymentType: { type: String, default: "Full Payment" },
         _id: false,
     }],
 

@@ -21,7 +21,7 @@ export async function createStudent(req, res) {
       batch,
       enrollments: rawEnrollments,
       dateOfBirth,
-      paymentType = "Full Payment",
+      paymentType: rootPaymentType = "Full Payment",
       isActive = true,
     } = req.body;
 
@@ -32,17 +32,12 @@ export async function createStudent(req, res) {
       });
     }
 
-    if (paymentType !== "Full Payment" && paymentType !== "Half Payment") {
-      req.log.warn({ paymentType }, "Student creation blocked: Invalid Payment Type");
-      return res.status(400).json({
-        message: "Invalid Payment Type. Must be Full Payment or Half Payment",
-      });
-    }
+    const VALID_PAYMENT_TYPES = ["Full Payment", "Half Payment"];
 
     // Build enrollments: accept new format or auto-convert legacy format
     let enrollments;
     if (Array.isArray(rawEnrollments) && rawEnrollments.length > 0) {
-      // NEW format: enrollments: [{ institute, batch }, ...]
+      // NEW format: enrollments: [{ institute, batch, paymentType }, ...]
       for (const enr of rawEnrollments) {
         if (!enr.institute || !enr.batch) {
           req.log.warn({ enrollments: rawEnrollments }, "Invalid enrollment entry");
@@ -50,12 +45,21 @@ export async function createStudent(req, res) {
             message: "Each enrollment must have both institute and batch",
           });
         }
+        if (enr.paymentType && !VALID_PAYMENT_TYPES.includes(enr.paymentType)) {
+          return res.status(400).json({
+            message: `Invalid paymentType '${enr.paymentType}'. Must be Full Payment or Half Payment`,
+          });
+        }
       }
-      enrollments = rawEnrollments.map(e => ({ institute: e.institute, batch: e.batch }));
+      enrollments = rawEnrollments.map(e => ({
+        institute: e.institute,
+        batch: e.batch,
+        paymentType: VALID_PAYMENT_TYPES.includes(e.paymentType) ? e.paymentType : rootPaymentType,
+      }));
     } else if (institute && batch) {
       // LEGACY format: institute (string or array) + batch (string)
       const instArray = Array.isArray(institute) ? institute : [institute];
-      enrollments = instArray.map(inst => ({ institute: inst, batch }));
+      enrollments = instArray.map(inst => ({ institute: inst, batch, paymentType: rootPaymentType }));
     } else {
       req.log.warn({ body: req.body }, "Student creation blocked: No enrollment data provided");
       return res.status(400).json({
@@ -100,7 +104,7 @@ export async function createStudent(req, res) {
       institute: enrollments.map(e => e.institute),
       batch: enrollments[0].batch,
       dateOfBirth,
-      paymentType,
+      paymentType: enrollments[0].paymentType || rootPaymentType,
       isActive,
     });
 
