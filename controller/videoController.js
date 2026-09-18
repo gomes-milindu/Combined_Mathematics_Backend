@@ -6,11 +6,17 @@ import Video from "../model/videoModel.js";
 export async function createVideo(req, res) {
     req.log.debug("--> createVideo controller hit");
     try {
-        const { title, videoUrl, institute, batch, description, targets } = req.body;
+        const { title, videoUrl, institute, batch, description, targets, month } = req.body;
 
         if (!title || !videoUrl) {
             req.log.warn({ body: req.body }, "Create video failed: missing required fields");
             return res.status(400).json({ message: "Title and video URL are required" });
+        }
+
+        // Validate billing month (YYYY-MM format, required for LMS access control)
+        if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+            req.log.warn({ month }, "Create video failed: invalid or missing billing month");
+            return res.status(400).json({ message: "A valid billing month (YYYY-MM) is required" });
         }
 
         // Support both legacy single-target and new multi-target format
@@ -29,6 +35,7 @@ export async function createVideo(req, res) {
             title,
             description: description || "",
             videoUrl,
+            month,
             // Keep legacy fields populated with first target for backward compat
             institute: videoTargets[0].institute,
             batch: videoTargets[0].batch,
@@ -68,7 +75,7 @@ export async function updateVideo(req, res) {
     try {
         const { id } = req.params;
 
-        const allowedFields = ["title", "description", "videoUrl", "institute", "batch", "isActive", "targets"];
+        const allowedFields = ["title", "description", "videoUrl", "institute", "batch", "isActive", "targets", "month"];
         const updateData = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {

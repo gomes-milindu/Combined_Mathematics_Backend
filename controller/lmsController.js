@@ -94,11 +94,18 @@ export async function getStudentRegistrations(req, res) {
  *
  * Query params: ?institute=X&batch=Y
  *
- * Authorization checks:
+ * Authorization flow:
  * 1. Student is authenticated (JWT verified by middleware)
  * 2. Student is registered for the EXACT requested institute+batch pair
- * 3. Student has a PAID payment for this institute+batch+current month
- * 4. Only active videos for that institute+batch are returned
+ * 3. Find ALL PAID payments for this EXACT studentId+institute+batch
+ * 4. Extract the set of paid months
+ * 5. Return only active videos whose billing month matches a paid month
+ *
+ * This supports historical access: if a student paid for August,
+ * they retain access to August videos even after September starts.
+ *
+ * Security: payments for Institute A + Batch X never unlock videos
+ * for Institute B + Batch Y. The exact pair is always enforced.
  */
 export async function getVideosForCategory(req, res) {
     req.log.debug("--> getVideosForCategory controller hit");
@@ -131,20 +138,24 @@ export async function getVideosForCategory(req, res) {
             return res.status(403).json({ message: "Access denied. Not registered for this institute and batch." });
         }
 
-        // 3. Verify PAID payment for this institute + batch + current month
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const payment = await Payment.findOne({
+        // 3. Find ALL PAID payments for this EXACT studentId + institute + batch
+        //    This is the key change: we no longer check only the current month.
+        //    The query strictly uses the exact institute+batch pair to prevent
+        //    cross-enrollment access (Phase 5 security).
+        const paidPayments = await Payment.find({
             studentId: student.studentId,
             institute: institute,
             batch: batch,
-            month: currentMonth,
             status: "PAID",
-        });
+        }).select("month").lean();
 
-        if (!payment) {
+        // 4. Extract the set of paid months
+        const paidMonths = paidPayments.map((p) => p.month);
+
+        if (paidMonths.length === 0) {
             req.log.info(
-                { studentId: student.studentId, institute, batch, month: currentMonth },
-                "LMS: Payment not found — access denied"
+                { studentId: student.studentId, institute, batch },
+                "LMS: No paid months found — access denied"
             );
             return res.status(403).json({
                 message: "Payment required to access these classes.",
@@ -152,10 +163,12 @@ export async function getVideosForCategory(req, res) {
             });
         }
 
-        // 4. Fetch active videos for this institute + batch
-        // Supports both new targets array and legacy single institute/batch fields
+        // 5. Fetch active videos for this institute + batch
+        //    that have a billing month matching one of the student's paid months.
+        //    Supports both new targets array and legacy single institute/batch fields.
         const videos = await Video.find({
             isActive: true,
+            month: { $in: paidMonths },
             $or: [
                 { targets: { $elemMatch: { institute: institute, batch: batch } } },
                 { institute: institute, batch: batch },
@@ -163,8 +176,8 @@ export async function getVideosForCategory(req, res) {
         }).sort({ createdAt: -1 });
 
         req.log.info(
-            { studentId: student.studentId, institute, batch, videoCount: videos.length },
-            "LMS videos returned successfully"
+            { studentId: student.studentId, institute, batch, paidMonthCount: paidMonths.length, videoCount: videos.length },
+            "LMS videos returned successfully (historical access enabled)"
         );
 
         return res.json({ videos });
