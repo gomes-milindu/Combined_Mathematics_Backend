@@ -19,8 +19,9 @@ export async function createStudent(req, res) {
       password,
       institute,
       batch,
+      enrollments: rawEnrollments,
       dateOfBirth,
-      paymentType = "Full Payment",
+      paymentType: rootPaymentType = "Full Payment",
       isActive = true,
     } = req.body;
 
@@ -28,6 +29,41 @@ export async function createStudent(req, res) {
       req.log.warn({ body: req.body }, "Student validation failed due to missing fields");
       return res.status(400).json({
         message: "Fill the Details",
+      });
+    }
+
+    const VALID_PAYMENT_TYPES = ["Full Payment", "Half Payment"];
+
+    // Build enrollments: accept new format or auto-convert legacy format
+    let enrollments;
+    if (Array.isArray(rawEnrollments) && rawEnrollments.length > 0) {
+      // NEW format: enrollments: [{ institute, batch, paymentType }, ...]
+      for (const enr of rawEnrollments) {
+        if (!enr.institute || !enr.batch) {
+          req.log.warn({ enrollments: rawEnrollments }, "Invalid enrollment entry");
+          return res.status(400).json({
+            message: "Each enrollment must have both institute and batch",
+          });
+        }
+        if (enr.paymentType && !VALID_PAYMENT_TYPES.includes(enr.paymentType)) {
+          return res.status(400).json({
+            message: `Invalid paymentType '${enr.paymentType}'. Must be Full Payment or Half Payment`,
+          });
+        }
+      }
+      enrollments = rawEnrollments.map(e => ({
+        institute: e.institute,
+        batch: e.batch,
+        paymentType: VALID_PAYMENT_TYPES.includes(e.paymentType) ? e.paymentType : rootPaymentType,
+      }));
+    } else if (institute && batch) {
+      // LEGACY format: institute (string or array) + batch (string)
+      const instArray = Array.isArray(institute) ? institute : [institute];
+      enrollments = instArray.map(inst => ({ institute: inst, batch, paymentType: rootPaymentType }));
+    } else {
+      req.log.warn({ body: req.body }, "Student creation blocked: No enrollment data provided");
+      return res.status(400).json({
+        message: "At least one enrollment (institute + batch) is required",
       });
     }
 
@@ -55,6 +91,7 @@ export async function createStudent(req, res) {
       req.log.debug({ studentId }, "Student password hashed with bcrypt");
     }
 
+    // Populate both new and legacy fields for backward compatibility
     const student = new Student({
       studentId,
       firstName,
@@ -62,10 +99,12 @@ export async function createStudent(req, res) {
       email,
       phone,
       password: hashedPassword,
-      institute,
-      batch,
+      enrollments,
+      // Legacy fields: populated from the first enrollment for backward compat
+      institute: enrollments.map(e => e.institute),
+      batch: enrollments[0].batch,
       dateOfBirth,
-      paymentType,
+      paymentType: enrollments[0].paymentType || rootPaymentType,
       isActive,
     });
 
@@ -375,7 +414,7 @@ export default function scanQr(req, res) {
   const { studentId } = req.body;
 
   // console.log("Student id successfully got it.", studentId);
-   req.log.info({ studentId }, "Student ID received from QR scan");
+  req.log.info({ studentId }, "Student ID received from QR scan");
   return res.json({
     success: true,
     message: "Student ID received",
@@ -392,7 +431,7 @@ export async function editStudent(req, res) {
     // Field allowlist — only permit known safe fields to be updated
     const allowedFields = [
       "studentId", "firstName", "lastName", "email", "phone",
-      "institute", "batch", "dateOfBirth", "isActive", "paymentType",
+      "institute", "batch", "enrollments", "dateOfBirth", "isActive", "paymentType",
     ];
     const updateData = {};
     for (const field of allowedFields) {
@@ -450,3 +489,141 @@ export async function getStudentById(req, res) {
     });
   }
 }
+
+/**
+ * GET /student/unpaid
+ * Returns students who have at least one unpaid enrollment for a given month.
+ * Query params: month (YYYY-MM, defaults to current), institute, batch
+ */
+export async function getUnpaidStudents(req, res) {
+  req.log.debug("--> getUnpaidStudents controller hit");
+
+  try {
+    // Default month to current YYYY-MM
+    let month = req.query.month;
+    if (!month) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      month = `${y}-${m}`;
+    }
+
+    const pipeline = [
+      // 1. Active students only
+      { $match: { isActive: true } },
+
+      // 2. Normalize enrollments vs legacy fields
+      {
+        $addFields: {
+          normalizedEnrollments: {
+            $cond: {
+              if: { $gt: [{ $size: { $ifNull: ["$enrollments", []] } }, 0] },
+              then: "$enrollments",
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: { $ifNull: ["$institute", []] } }, 0] },
+                  then: {
+                    $map: {
+                      input: "$institute",
+                      as: "inst",
+                      in: { institute: "$$inst", batch: { $ifNull: ["$batch", ""] } }
+                    }
+                  },
+                  else: [{ institute: "", batch: { $ifNull: ["$batch", ""] } }]
+                }
+              }
+            }
+          }
+        }
+      },
+      { $unwind: "$normalizedEnrollments" },
+
+      // 3. Lookup paid payments for this exact enrollment + month
+      {
+        $lookup: {
+          from: "payments",
+          let: {
+            sId: "$studentId",
+            inst: "$normalizedEnrollments.institute",
+            bat: "$normalizedEnrollments.batch"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$studentId", "$$sId"] },
+                    { $eq: ["$institute", "$$inst"] },
+                    { $eq: ["$batch", "$$bat"] },
+                    { $eq: ["$month", month] },
+                    { $eq: ["$status", "PAID"] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "paidPayments"
+        }
+      },
+
+      // 4. Keep only unpaid (no matching payment)
+      {
+        $match: {
+          $expr: { $eq: [{ $size: "$paidPayments" }, 0] }
+        }
+      },
+
+      // 5. Group back to unique students
+      {
+        $group: {
+          _id: "$_id",
+          studentId: { $first: "$studentId" },
+          firstName: { $first: "$firstName" },
+          lastName: { $first: "$lastName" },
+          phone: { $first: "$phone" },
+          email: { $first: "$email" },
+          unpaidEnrollments: {
+            $push: {
+              institute: "$normalizedEnrollments.institute",
+              batch: "$normalizedEnrollments.batch"
+            }
+          }
+        }
+      },
+      { $sort: { studentId: 1 } }
+    ];
+
+    let students = await Student.aggregate(pipeline);
+
+    // Apply institute/batch filters on the unpaid enrollments
+    const filterInstitute = req.query.institute;
+    const filterBatch = req.query.batch;
+
+    if (filterInstitute || filterBatch) {
+      students = students
+        .map((s) => {
+          const filtered = s.unpaidEnrollments.filter((e) => {
+            if (filterInstitute && e.institute !== filterInstitute) return false;
+            if (filterBatch && e.batch !== filterBatch) return false;
+            return true;
+          });
+          return { ...s, unpaidEnrollments: filtered };
+        })
+        .filter((s) => s.unpaidEnrollments.length > 0);
+    }
+
+    req.log.info({ month, count: students.length }, "Unpaid students retrieved");
+    res.json({
+      count: students.length,
+      month,
+      students,
+    });
+  } catch (err) {
+    req.log.error(err, "Unhandled error inside getUnpaidStudents controller");
+    res.status(500).json({
+      message: "Error fetching unpaid students",
+      error: err.message,
+    });
+  }
+}
+

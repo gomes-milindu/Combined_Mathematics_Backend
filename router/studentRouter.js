@@ -1,6 +1,6 @@
 import express from 'express'
 import User from '../model/studentModel.js';
-import scanQr, { createStudent,deleteStudent,editStudent,getOneStudent,getStudent,getStudentById,loginStudent,regenerateQr} from '../controller/studentController.js';
+import scanQr, { createStudent, deleteStudent, editStudent, getOneStudent, getStudent, getStudentById, loginStudent, regenerateQr, getUnpaidStudents } from '../controller/studentController.js';
 import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
 
 const studentRoute = express.Router()
@@ -11,6 +11,7 @@ studentRoute.post("/login", loginStudent)
 // Protected — Admin only (specific paths MUST come before /:id param routes)
 studentRoute.post("/", requireAuth, requireAdmin, createStudent)
 studentRoute.get("/", requireAuth, requireAdmin, getStudent)
+studentRoute.get("/unpaid", requireAuth, requireAdmin, getUnpaidStudents)
 studentRoute.get("/scan", requireAuth, requireAdmin, scanQr)
 studentRoute.get("/getOne/:id", requireAuth, requireAdmin, getOneStudent)
 studentRoute.post("/:id/qr", requireAuth, requireAdmin, regenerateQr)
