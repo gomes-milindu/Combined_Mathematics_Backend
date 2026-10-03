@@ -31,9 +31,9 @@ export async function getDashboardStats(req, res) {
     const totalStudents = await Student.countDocuments();
     const totalPayments = await Payment.countDocuments({ status: "PAID" });
 
-    // ── Total Income for current month (fixed: uses YYYY-MM) ──
+    // ── Total Income for current month (PAID payments only) ──
     const totalIncomeData = await Payment.aggregate([
-      { $match: { month: currentMonth, status: "PAID" } },
+      { $match: { status: "PAID", month: currentMonth } },
       {
         $group: {
           _id: null,
@@ -43,7 +43,75 @@ export async function getDashboardStats(req, res) {
     ]);
 
     const totalIncome = totalIncomeData[0]?.total || 0;
+    // Official business rule: Teacher 75%, Institute 25%
     const netProfit = (totalIncome * 75) / 100;
+    const instituteShare = (totalIncome * 25) / 100;
+
+    // -- Unpaid Students Count (Current Month) --
+    const unpaidAgg = await Student.aggregate([
+      { $match: { isActive: true } },
+      {
+        $addFields: {
+          normalizedEnrollments: {
+            $cond: {
+              if: { $gt: [{ $size: { $ifNull: ["$enrollments", []] } }, 0] },
+              then: "$enrollments",
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: { $ifNull: ["$institute", []] } }, 0] },
+                  then: {
+                    $map: {
+                      input: "$institute",
+                      as: "inst",
+                      in: { institute: "$$inst", batch: { $ifNull: ["$batch", ""] } }
+                    }
+                  },
+                  else: [{ institute: "", batch: { $ifNull: ["$batch", ""] } }]
+                }
+              }
+            }
+          }
+        }
+      },
+      { $unwind: "$normalizedEnrollments" },
+      {
+        $lookup: {
+          from: "payments",
+          let: {
+            sId: "$studentId",
+            inst: "$normalizedEnrollments.institute",
+            bat: "$normalizedEnrollments.batch"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$studentId", "$$sId"] },
+                    { $eq: ["$institute", "$$inst"] },
+                    { $eq: ["$batch", "$$bat"] },
+                    { $eq: ["$month", currentMonth] },
+                    { $eq: ["$status", "PAID"] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "paidPayments"
+        }
+      },
+      {
+        $match: {
+          $expr: { $eq: [{ $size: "$paidPayments" }, 0] }
+        }
+      },
+      {
+        $group: { _id: "$_id" }
+      },
+      { $count: "unpaidCount" }
+    ]);
+    const unpaidCount = unpaidAgg[0]?.unpaidCount || 0;
+
 
     // ── 6-Month Profit Summary ──
     const last6 = getLastNMonths(6);
@@ -153,6 +221,8 @@ export async function getDashboardStats(req, res) {
       totalPayments,
       totalIncome,
       netProfit,
+      instituteShare,
+      unpaidCount,
       currentMonth: currentMonthName,
       sixMonthSummary,
       institutePerformance,
