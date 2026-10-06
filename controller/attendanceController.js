@@ -1,5 +1,6 @@
 import Attendance from "../model/attendanceModel.js";
 import Student from "../model/studentModel.js";
+import Payment from "../model/paymentModel.js";
 
 /**
  * POST /attendance/mark
@@ -8,6 +9,9 @@ import Student from "../model/studentModel.js";
  */
 export async function markAttendance(req, res) {
   req.log.debug("--> markAttendance controller hit");
+  let studentName = "";
+  let lastPaidMonth = null;
+
   try {
     const { studentObjectId, institute, batch } = req.body;
 
@@ -22,20 +26,37 @@ export async function markAttendance(req, res) {
       return res.status(404).json({ message: "Student not found." });
     }
 
+    studentName = `${student.firstName} ${student.lastName}`;
+
     // 2. Block inactive students
     if (!student.isActive) {
       req.log.warn({ studentId: student.studentId }, "Attendance blocked: student inactive");
       return res.status(403).json({ message: "Student is inactive. Attendance cannot be recorded." });
     }
 
-    // 3. Build today's date string
+    // 3. Find student's last paid month for this institute/batch (or overall paid month fallback)
+    const lastPaymentForClass = await Payment.findOne({
+      studentId: student.studentId,
+      institute,
+      batch,
+      status: "PAID",
+    }).sort({ month: -1, paidDate: -1, createdAt: -1 });
+
+    const paymentRecord = lastPaymentForClass || await Payment.findOne({
+      studentId: student.studentId,
+      status: "PAID",
+    }).sort({ month: -1, paidDate: -1, createdAt: -1 });
+
+    lastPaidMonth = paymentRecord ? paymentRecord.month : "No payment record";
+
+    // 4. Build today's date string
     const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-    // 4. Attempt insert (unique index handles duplicates atomically)
+    // 5. Attempt insert (unique index handles duplicates atomically)
     const record = new Attendance({
       student: student._id,
       studentId: student.studentId,
-      studentName: `${student.firstName} ${student.lastName}`,
+      studentName,
       institute,
       batch,
       date: today,
@@ -50,13 +71,18 @@ export async function markAttendance(req, res) {
     return res.status(201).json({
       message: "Attendance recorded successfully.",
       attendance: record,
-      studentName: `${student.firstName} ${student.lastName}`,
+      studentName,
+      lastPaidMonth,
     });
   } catch (err) {
     // MongoDB duplicate key error
     if (err.code === 11000) {
       req.log.info({ body: req.body }, "Duplicate attendance blocked by index");
-      return res.status(409).json({ message: "Attendance already recorded for this student today." });
+      return res.status(409).json({
+        message: "Attendance already recorded for this student today.",
+        studentName: studentName || "Student",
+        lastPaidMonth: lastPaidMonth || "No payment record",
+      });
     }
     req.log.error(err, "Unhandled error in markAttendance");
     return res.status(500).json({ message: "Internal server error.", error: err.message });

@@ -82,14 +82,16 @@ export async function createPayment(req, res) {
 
     const savedPayment = await payment.save();
 
-    const message = `Combined Maths Class
-                      Payment Received
-                      ${studentDet.firstName} ${studentDet.lastName}
-                      LKR ${savedPayment.amount} ${savedPayment.cardType}
-                      ${savedPayment.institute} - ${savedPayment.batch}
-                      ${savedPayment.month}
-                      ${savedPayment.status}
-                      Thank you`;
+    const message = [
+  "Combined Maths Class",
+  "Payment Received",
+  `${studentDet.firstName} ${studentDet.lastName}`,
+  `LKR ${savedPayment.amount} ${savedPayment.cardType}`,
+  `${savedPayment.institute} - ${savedPayment.batch}`,
+  `${savedPayment.month}`,
+  `${savedPayment.status}`,
+  "Thank you",
+].join("\n");
 
     const smsResult = await sendSMS(studentDet.phone, message);
     req.log.info({ phone: studentDet.phone, smsResult }, "SMS Result");
